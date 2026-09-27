@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'core/constants/api_constants.dart';
+import 'core/theme/app_theme.dart';
+import 'providers/pos_provider.dart';
+import 'providers/ai_provider.dart';
+import 'screens/main_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiConstants.loadSavedUrls();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => PosProvider()),
+        ChangeNotifierProvider(create: (_) => AiProvider()),
+      ],
+      child: const LarisAiMobileApp(),
+    ),
+  );
+}
+
+class LarisAiMobileApp extends StatelessWidget {
+  const LarisAiMobileApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'LarisAI POS Mobile',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: const MainScreen(),
+    );
+  }
+}
