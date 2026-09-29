@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'package:sqflite/sqflite.dart' hide Transaction;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show sqfliteFfiInit, databaseFactoryFfi;
 import 'package:path/path.dart' as p;
 import '../models/product_model.dart';
 import '../models/transaction_model.dart';
@@ -18,6 +20,11 @@ class LocalDbService {
   }
 
   Future<Database> _initDB(String filePath) async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
 
