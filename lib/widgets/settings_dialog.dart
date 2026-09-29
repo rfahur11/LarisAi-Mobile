@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../providers/pos_provider.dart';
+import '../providers/ai_provider.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -34,6 +37,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
     setState(() {
       _selectedMode = mode;
       switch (mode) {
+        case ConnectionMode.offline:
+          _posController.text = 'local://sqlite';
+          _aiController.text = 'local://sqlite';
+          break;
+        case ConnectionMode.cloud:
+          _posController.text = ApiConstants.cloudPosBaseUrl;
+          _aiController.text = ApiConstants.cloudAiBaseUrl;
+          break;
         case ConnectionMode.usb:
           _posController.text = ApiConstants.usbPosBaseUrl;
           _aiController.text = ApiConstants.usbAiBaseUrl;
@@ -41,10 +52,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
         case ConnectionMode.wifi:
           _posController.text = ApiConstants.lanPosBaseUrl;
           _aiController.text = ApiConstants.lanAiBaseUrl;
-          break;
-        case ConnectionMode.cloud:
-          _posController.text = ApiConstants.cloudPosBaseUrl;
-          _aiController.text = ApiConstants.cloudAiBaseUrl;
           break;
       }
     });
@@ -55,6 +62,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
     required IconData icon,
     required String title,
     required String subtitle,
+    required String badgeText,
+    required Color badgeColor,
     required Color accentColor,
   }) {
     final isSelected = _selectedMode == mode;
@@ -64,23 +73,23 @@ class _SettingsDialogState extends State<SettingsDialog> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? accentColor.withOpacity(0.08) : Colors.grey.shade50,
+          color: isSelected ? accentColor.withValues(alpha: 0.08) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? accentColor : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: accentColor.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 2))]
+              ? [BoxShadow(color: accentColor.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))]
               : [],
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: isSelected ? accentColor.withOpacity(0.15) : Colors.grey.shade100,
+                color: isSelected ? accentColor.withValues(alpha: 0.15) : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: isSelected ? accentColor : Colors.grey.shade500, size: 22),
@@ -90,18 +99,38 @@ class _SettingsDialogState extends State<SettingsDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? accentColor : AppColors.textMain,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isSelected ? accentColor : AppColors.textMain,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -126,15 +155,15 @@ class _SettingsDialogState extends State<SettingsDialog> {
               gradient: const LinearGradient(colors: [AppColors.primary, AppColors.accent]),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.dns_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 10),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Koneksi Backend', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Pilih mode koneksi HP ke server', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text('Mode Operasional', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Pilih arsitektur database & sinkronisasi', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -144,32 +173,54 @@ class _SettingsDialogState extends State<SettingsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Mode cards
+            // Mode 1: Lifetime Offline SQLite
+            _buildModeCard(
+              mode: ConnectionMode.offline,
+              icon: Icons.offline_bolt_rounded,
+              title: '📦 Lifetime Mode',
+              subtitle: '100% Offline — Database tersimpan di SQLite HP tanpa server',
+              badgeText: 'LIFETIME',
+              badgeColor: Colors.teal.shade700,
+              accentColor: Colors.teal.shade700,
+            ),
+            const SizedBox(height: 8),
+
+            // Mode 2: Subscription Cloud SaaS
+            _buildModeCard(
+              mode: ConnectionMode.cloud,
+              icon: Icons.cloud_done_rounded,
+              title: '☁️ Subscription SaaS',
+              subtitle: 'Cloud Atlas — Sinkron multi-device & AI realtime',
+              badgeText: 'SUBSCRIPTION',
+              badgeColor: Colors.indigo.shade700,
+              accentColor: Colors.indigo.shade700,
+            ),
+            const SizedBox(height: 8),
+
+            // Mode 3: Local Dev (USB)
             _buildModeCard(
               mode: ConnectionMode.usb,
               icon: Icons.usb_rounded,
-              title: '🔌 Kabel USB',
-              subtitle: 'Pakai adb reverse — HP terhubung kabel ke laptop',
-              accentColor: Colors.blue.shade600,
+              title: '🔌 Dev: Kabel USB',
+              subtitle: 'adb reverse — Terhubung ke backend laptop',
+              badgeText: 'DEV',
+              badgeColor: Colors.blue.shade700,
+              accentColor: Colors.blue.shade700,
             ),
             const SizedBox(height: 8),
+
+            // Mode 4: Local Dev (Wi-Fi)
             _buildModeCard(
               mode: ConnectionMode.wifi,
-              icon: Icons.wifi,
-              title: '📶 Wi-Fi LAN',
-              subtitle: 'HP & laptop di jaringan Wi-Fi yang sama',
-              accentColor: Colors.orange.shade700,
-            ),
-            const SizedBox(height: 8),
-            _buildModeCard(
-              mode: ConnectionMode.cloud,
-              icon: Icons.cloud_outlined,
-              title: '☁️ Cloud (HF Space)',
-              subtitle: 'Tanpa laptop — koneksi langsung ke Hugging Face',
-              accentColor: Colors.green.shade700,
+              icon: Icons.wifi_rounded,
+              title: '📶 Dev: Wi-Fi LAN',
+              subtitle: 'Jaringan Wi-Fi lokal kantor / toko',
+              badgeText: 'LAN',
+              badgeColor: Colors.orange.shade800,
+              accentColor: Colors.orange.shade800,
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Advanced toggle
             GestureDetector(
@@ -182,16 +233,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     color: AppColors.textMuted,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    'URL Kustom (Advanced)',
+                  const Text(
+                    'Kustomisasi Endpoint (Advanced)',
                     style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
             ),
             if (_showAdvanced) ...[
-              const SizedBox(height: 12),
-              const Text('POS Backend URL (Go):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              const Text('POS Backend URL:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               TextField(
                 controller: _posController,
@@ -202,7 +253,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text('AI Engine URL (FastAPI):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              const Text('AI Engine URL:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               TextField(
                 controller: _aiController,
@@ -222,10 +273,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
           child: const Text('Batal'),
         ),
         ElevatedButton.icon(
-          icon: const Icon(Icons.save_alt_rounded, size: 16),
-          label: const Text('Simpan'),
+          icon: const Icon(Icons.check_rounded, size: 16),
+          label: const Text('Terapkan Mode'),
           onPressed: () async {
-            // Set mode first, then apply custom URLs if advanced was used
             await ApiConstants.setMode(_selectedMode);
             if (_showAdvanced) {
               await ApiConstants.setUrls(
@@ -233,15 +283,21 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 aiUrl: _aiController.text.trim(),
               );
             }
-            if (mounted) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('✅ Mode ${ApiConstants.modeLabel} aktif!'),
-                  backgroundColor: AppColors.primary,
-                ),
-              );
-            }
+
+            if (!context.mounted) return;
+
+            // Refresh data in providers reactively
+            Provider.of<PosProvider>(context, listen: false).loadProducts();
+            Provider.of<AiProvider>(context, listen: false).loadAiData();
+
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Mode ${ApiConstants.modeLabel} berhasil diaktifkan!'),
+                backgroundColor: AppColors.primary,
+                duration: const Duration(seconds: 2),
+              ),
+            );
           },
         ),
       ],
