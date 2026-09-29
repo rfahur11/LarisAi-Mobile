@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/transaction_model.dart';
+import '../services/printer_service.dart';
 
 class ReceiptDialog extends StatelessWidget {
   final Transaction transaction;
@@ -147,7 +148,7 @@ class ReceiptDialog extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Buttons
+              // Action Buttons
               Row(
                 children: [
                   Expanded(
@@ -155,28 +156,47 @@ class ReceiptDialog extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: AppColors.primary),
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('🖨️ Mengirim perintah cetak struk via Bluetooth ESC/POS...'),
-                            backgroundColor: AppColors.primary,
-                          ),
+                      onPressed: () async {
+                        await PrinterService.instance.printReceipt(
+                          transaction: transaction,
+                          cashTendered: cashTendered,
                         );
                       },
-                      icon: const Icon(Icons.print, size: 18),
-                      label: const Text('Cetak Struk'),
+                      icon: const Icon(Icons.print_rounded, size: 18, color: AppColors.primary),
+                      label: const Text('Cetak', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: AppColors.accent),
+                      ),
+                      onPressed: () async {
+                        await PrinterService.instance.shareReceiptPdf(
+                          transaction: transaction,
+                          cashTendered: cashTendered,
+                        );
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 18, color: AppColors.accent),
+                      label: const Text('Share PDF', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Selesai'),
+                      child: const Text('Selesai', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
