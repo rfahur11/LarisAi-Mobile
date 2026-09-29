@@ -11,7 +11,8 @@
 
 | Sub-Project | Tipe Aplikasi | Tech Stack Utama | Port / Status Deployment | Remote GitHub |
 | :--- | :--- | :--- | :--- | :--- |
-| **`LarisAi-Mobile`** | Mobile POS & AI App | Flutter 3.47, Dart 3.13, Provider, Dio, MobileScanner, fl_chart | 📱 Running on OPPO CPH1933 (Android 11) | `git@github.com:rfahur11/LarisAi-Mobile.git` (Pending Push) |
+| **`LarisAi-Cloud (HF)`**| Monolith Cloud API | Go POS + FastAPI AI + WA + Nginx | ☁️ https://rfahrur6045-sentimentanalysist.hf.space | Hugging Face Spaces |
+| **`LarisAi-Mobile`** | Mobile POS & AI App | Flutter 3.47, Dart 3.13, Provider, Dio, MobileScanner, fl_chart | 📱 Running on OPPO CPH1933 (Android 11) | `git@github.com:rfahur11/LarisAi-Mobile.git` (Synced) |
 | **`LarisAi-backend`**| Core Microservices | Golang 1.22 (POS), Node.js (Baileys WA), MongoDB 7.0 | ⚙️ Port 8080 (POS), Port 8002 (WA), Port 27017 (Mongo) | `git@github.com:rfahur11/LarisAi-backend.git` |
 | **`LarisAi-AI`**     | AI Inference & ML   | FastAPI, Python 3.11, MLflow, Scikit-Learn, Motor | 🧠 Port 8001 (Stockout Forecasting & RFM Clustering) | `git@github.com:rfahur11/LarisAi-AI.git` |
 | **`LarisAi-frontend`**| Web Dashboard & POS | Next.js 15, React 19, TypeScript, TailwindCSS | 🌐 Port 3000 / Netlify | `git@github.com:rfahur11/LarisAi-frontend.git` |
