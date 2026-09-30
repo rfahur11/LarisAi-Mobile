@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../models/cart_item_model.dart';
 import '../models/transaction_model.dart';
+import '../models/analytics_model.dart';
 import '../services/api_service.dart';
 
 class PosProvider extends ChangeNotifier {
@@ -12,6 +13,7 @@ class PosProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _selectedCategory = 'Semua';
   String _searchQuery = '';
+  AnalyticsSummary? _summary;
 
   List<Product> get products {
     if (_selectedCategory == 'Semua') {
@@ -24,6 +26,12 @@ class PosProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+  AnalyticsSummary? get summary => _summary;
+
+  int get totalRevenueToday => _summary?.totalRevenue ?? 0;
+  int get totalOrdersToday => _summary?.totalOrders ?? 0;
+  int get lowStockCount => _products.where((p) => p.stock > 0 && p.stock <= 5).length;
+  int get outOfStockCount => _products.where((p) => p.stock == 0).length;
 
   int get totalAmount => _cart.fold(0, (sum, item) => sum + item.subtotal);
   int get totalItems => _cart.fold(0, (sum, item) => sum + item.quantity);
@@ -38,6 +46,14 @@ class PosProvider extends ChangeNotifier {
 
   PosProvider() {
     loadProducts();
+    loadSummary();
+  }
+
+  Future<void> loadSummary() async {
+    try {
+      _summary = await _apiService.getAnalyticsSummary();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> loadProducts({String? search}) async {
@@ -47,6 +63,7 @@ class PosProvider extends ChangeNotifier {
     _products = await _apiService.getProducts(search: search);
     _isLoading = false;
     notifyListeners();
+    loadSummary();
   }
 
   void setCategory(String category) {
@@ -132,6 +149,7 @@ class PosProvider extends ChangeNotifier {
         }
       }
       clearCart();
+      loadSummary();
     }
     return transaction;
   }
