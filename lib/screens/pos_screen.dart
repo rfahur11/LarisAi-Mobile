@@ -20,6 +20,8 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _desktopCashController = TextEditingController();
+  final TextEditingController _desktopRefController = TextEditingController();
   String _desktopPaymentType = 'TUNAI';
   int _desktopCashTendered = 0;
   bool _isProcessingCheckout = false;
@@ -28,6 +30,8 @@ class _PosScreenState extends State<PosScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _desktopCashController.dispose();
+    _desktopRefController.dispose();
     super.dispose();
   }
 
@@ -224,10 +228,26 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _processDesktopCheckout(BuildContext context, PosProvider posProvider) async {
     if (posProvider.cart.isEmpty || _isProcessingCheckout) return;
 
+    final total = posProvider.totalAmount;
+    if (_desktopPaymentType == 'TUNAI' && _desktopCashTendered < total && _desktopCashTendered > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Uang tunai yang dibayarkan kurang dari total belanja!'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final effectiveCash = (_desktopPaymentType == 'TUNAI')
+        ? (_desktopCashTendered > 0 ? _desktopCashTendered : total)
+        : total;
+
     setState(() => _isProcessingCheckout = true);
 
     final tx = await posProvider.processCheckout(
       paymentType: _desktopPaymentType,
+      customerId: _desktopRefController.text.trim().isNotEmpty ? _desktopRefController.text.trim() : null,
     );
 
     setState(() => _isProcessingCheckout = false);
@@ -239,11 +259,13 @@ class _PosScreenState extends State<PosScreen> {
         context: context,
         builder: (_) => ReceiptDialog(
           transaction: tx,
-          cashTendered: _desktopPaymentType == 'TUNAI' ? _desktopCashTendered : tx.totalAmount,
+          cashTendered: effectiveCash,
         ),
       );
       setState(() {
         _desktopCashTendered = 0;
+        _desktopCashController.clear();
+        _desktopRefController.clear();
       });
     }
   }
@@ -262,7 +284,13 @@ class _PosScreenState extends State<PosScreen> {
           _showAddProductModal(context);
         },
         const SingleActivator(LogicalKeyboardKey.f7): () {
-          setState(() => _desktopPaymentType = 'TUNAI');
+          setState(() {
+            _desktopPaymentType = 'TUNAI';
+            if (_desktopCashTendered == 0) {
+              _desktopCashTendered = posProvider.totalAmount;
+              _desktopCashController.text = posProvider.totalAmount.toString();
+            }
+          });
         },
         const SingleActivator(LogicalKeyboardKey.f8): () {
           setState(() => _desktopPaymentType = 'QRIS');
@@ -300,6 +328,7 @@ class _PosScreenState extends State<PosScreen> {
   // DESKTOP / TABLET SPLIT-SCREEN LAYOUT
   // ==========================================
   Widget _buildDesktopLayout(BuildContext context, PosProvider posProvider, double screenWidth) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     int crossAxisCount = 3;
     if (screenWidth >= 1400) {
       crossAxisCount = 5;
@@ -308,13 +337,14 @@ class _PosScreenState extends State<PosScreen> {
     }
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: Row(
         children: [
           // LEFT PANEL: Catalog, Search & Categories (Flex 3)
           Expanded(
             flex: 3,
             child: Container(
-              color: AppColors.background,
+              color: isDark ? AppColors.darkBackground : AppColors.background,
               child: Column(
                 children: [
                   // Desktop Top Action Bar
@@ -521,30 +551,38 @@ class _PosScreenState extends State<PosScreen> {
 
                 // Payment & Checkout Area
                 Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: const Border(top: BorderSide(color: AppColors.border)),
+                    color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                    border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border)),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Total Breakdown Box
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? AppColors.darkBackground : Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
                         ),
                         child: Column(
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Tagihan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+                                Text(
+                                  'Total Tagihan',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                  ),
+                                ),
                                 Text(
                                   CurrencyFormatter.format(posProvider.totalAmount),
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primaryDark),
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary),
                                 ),
                               ],
                             ),
@@ -553,18 +591,35 @@ class _PosScreenState extends State<PosScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Diterima', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                  Text(CurrencyFormatter.format(_desktopCashTendered), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    'Nominal Diterima',
+                                    style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.format(_desktopCashTendered),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 2),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Kembalian', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.success)),
                                   Text(
-                                    CurrencyFormatter.format((_desktopCashTendered - posProvider.totalAmount).clamp(0, 99999999)),
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.success),
+                                    _desktopCashTendered >= posProvider.totalAmount ? 'Kembalian:' : 'Kurang:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _desktopCashTendered >= posProvider.totalAmount ? AppColors.success : AppColors.danger,
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyFormatter.format((_desktopCashTendered - posProvider.totalAmount).abs()),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: _desktopCashTendered >= posProvider.totalAmount ? AppColors.success : AppColors.danger,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -572,40 +627,168 @@ class _PosScreenState extends State<PosScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Payment Method Selector Pills (F7 Tunai, F8 QRIS)
+                      // Payment Method Selector Pills (Row 1: Tunai, QRIS, Transfer)
                       Row(
                         children: [
-                          _buildPaymentPill('TUNAI', '💵 Tunai (F7)', _desktopPaymentType == 'TUNAI'),
-                          const SizedBox(width: 8),
-                          _buildPaymentPill('QRIS', '📱 QRIS (F8)', _desktopPaymentType == 'QRIS'),
-                          const SizedBox(width: 8),
-                          _buildPaymentPill('DEBIT', '💳 Debit', _desktopPaymentType == 'DEBIT'),
+                          _buildPaymentPill('TUNAI', '💵 Tunai (F7)', _desktopPaymentType == 'TUNAI', isDark),
+                          const SizedBox(width: 6),
+                          _buildPaymentPill('QRIS', '📱 QRIS (F8)', _desktopPaymentType == 'QRIS', isDark),
+                          const SizedBox(width: 6),
+                          _buildPaymentPill('TRANSFER', '🏦 Transfer', _desktopPaymentType == 'TRANSFER', isDark),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Payment Method Selector Pills (Row 2: Debit EDC, E-Wallet)
+                      Row(
+                        children: [
+                          _buildPaymentPill('DEBIT', '💳 Kartu Debit / EDC', _desktopPaymentType == 'DEBIT', isDark),
+                          const SizedBox(width: 6),
+                          _buildPaymentPill('EWALLET', '📲 E-Wallet (GoPay/OVO/Dana)', _desktopPaymentType == 'EWALLET', isDark),
                         ],
                       ),
                       const SizedBox(height: 10),
 
-                      // Quick Cash Buttons if Tunai
-                      if (_desktopPaymentType == 'TUNAI' && posProvider.totalAmount > 0)
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                      // Dynamic Payment Input Area
+                      if (_desktopPaymentType == 'TUNAI') ...[
+                        // Manual Nominal Input Field
+                        Row(
                           children: [
-                            _buildQuickCashChip('Uang Pas', posProvider.totalAmount),
-                            _buildQuickCashChip('10k', 10000),
-                            _buildQuickCashChip('20k', 20000),
-                            _buildQuickCashChip('50k', 50000),
-                            _buildQuickCashChip('100k', 100000),
+                            Expanded(
+                              child: TextField(
+                                controller: _desktopCashController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                decoration: InputDecoration(
+                                  labelText: 'Input Nominal Uang Diterima (Rp)',
+                                  labelStyle: const TextStyle(fontSize: 12),
+                                  prefixText: 'Rp ',
+                                  prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                                  suffixIcon: _desktopCashController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 16),
+                                          onPressed: () {
+                                            setState(() {
+                                              _desktopCashTendered = 0;
+                                              _desktopCashController.clear();
+                                            });
+                                          },
+                                        )
+                                      : null,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                                onChanged: (val) {
+                                  final numVal = int.tryParse(val.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                                  setState(() {
+                                    _desktopCashTendered = numVal;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Set Uang Pas Button
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryLight,
+                                foregroundColor: AppColors.primaryDark,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: posProvider.totalAmount > 0
+                                  ? () {
+                                      setState(() {
+                                        _desktopCashTendered = posProvider.totalAmount;
+                                        _desktopCashController.text = posProvider.totalAmount.toString();
+                                      });
+                                    }
+                                  : null,
+                              child: const Text('Uang Pas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
                           ],
                         ),
+                        const SizedBox(height: 8),
 
-                      const SizedBox(height: 14),
+                        // Quick Cash Buttons
+                        if (posProvider.totalAmount > 0)
+                          Wrap(
+                            spacing: 5,
+                            runSpacing: 5,
+                            children: [
+                              _buildQuickCashChip('10rb', 10000),
+                              _buildQuickCashChip('20rb', 20000),
+                              _buildQuickCashChip('50rb', 50000),
+                              _buildQuickCashChip('100rb', 100000),
+                              _buildQuickCashChip('200rb', 200000),
+                              _buildQuickAddCashChip('+5rb', 5000, posProvider),
+                              _buildQuickAddCashChip('+10rb', 10000, posProvider),
+                              _buildQuickAddCashChip('+20rb', 20000, posProvider),
+                              _buildQuickAddCashChip('+50rb', 50000, posProvider),
+                            ],
+                          ),
+                      ] else if (_desktopPaymentType == 'QRIS') ...[
+                        // QRIS Preview Banner
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E1B4B) : AppColors.accentLight.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.qr_code_2_rounded, size: 36, color: AppColors.accent),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('QRIS Dinamis / Statis Toko', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    Text(
+                                      'Minta pelanggan scan QRIS sebesar ${CurrencyFormatter.format(posProvider.totalAmount)}',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        // Transfer / Debit / E-Wallet Reference Input
+                        TextField(
+                          controller: _desktopRefController,
+                          decoration: InputDecoration(
+                            hintText: _desktopPaymentType == 'TRANSFER'
+                                ? 'No. Referensi / Bank Pengirim (opsional)'
+                                : (_desktopPaymentType == 'DEBIT'
+                                    ? 'No. Kartu / Approval Code EDC (opsional)'
+                                    : 'No. HP / ID E-Wallet Pelanggan (opsional)'),
+                            prefixIcon: Icon(
+                              _desktopPaymentType == 'TRANSFER'
+                                  ? Icons.account_balance_outlined
+                                  : (_desktopPaymentType == 'DEBIT' ? Icons.credit_card : Icons.phone_android),
+                              size: 18,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
 
                       // Selesaikan Transaksi (F9) Big Button
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 46,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -638,30 +821,36 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _buildPaymentPill(String type, String label, bool isSelected) {
+  Widget _buildPaymentPill(String type, String label, bool isSelected, bool isDark) {
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() {
           _desktopPaymentType = type;
-          if (type != 'TUNAI') _desktopCashTendered = 0;
+          if (type != 'TUNAI') {
+            _desktopCashTendered = 0;
+            _desktopCashController.clear();
+          }
         }),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight : Colors.white,
+            color: isSelected
+                ? (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)
+                : (isDark ? AppColors.darkBackground : Colors.white),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border,
+              color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border),
               width: isSelected ? 1.5 : 1,
             ),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? AppColors.primaryDark : AppColors.textMain,
+              color: isSelected ? AppColors.primaryDark : (isDark ? AppColors.darkTextMain : AppColors.textMain),
             ),
           ),
         ),
@@ -670,22 +859,53 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Widget _buildQuickCashChip(String label, int amount) {
+    final isSelected = _desktopCashTendered == amount;
     return InkWell(
-      onTap: () => setState(() => _desktopCashTendered = amount),
-      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() {
+        _desktopCashTendered = amount;
+        _desktopCashController.text = amount.toString();
+      }),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: _desktopCashTendered == amount ? AppColors.primaryDark : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          color: isSelected ? AppColors.primaryDark : Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isSelected ? AppColors.primaryDark : AppColors.border),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: _desktopCashTendered == amount ? Colors.white : AppColors.textMain,
+            color: isSelected ? Colors.white : AppColors.textMain,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickAddCashChip(String label, int addAmount, PosProvider posProvider) {
+    return InkWell(
+      onTap: () => setState(() {
+        final base = _desktopCashTendered > 0 ? _desktopCashTendered : posProvider.totalAmount;
+        _desktopCashTendered = base + addAmount;
+        _desktopCashController.text = _desktopCashTendered.toString();
+      }),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.accentLight.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: AppColors.accent,
           ),
         ),
       ),
