@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
@@ -443,6 +444,61 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       SnackBar(content: Text('Gagal aktivasi: $e'), backgroundColor: Colors.red),
                     );
                   }
+                }
+              },
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 12),
+          const Text('Belum Memiliki Lisensi?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          const SizedBox(height: 4),
+          const Text('Dapatkan lisensi resmi seumur hidup (Lifetime) atau langganan Cloud SaaS melalui portal Weboz Store.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          const SizedBox(height: 10),
+
+          // CTA Button 1: Weboz Official Store
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.teal.shade800,
+                side: BorderSide(color: Colors.teal.shade400, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                backgroundColor: Colors.teal.shade50.withValues(alpha: 0.5),
+              ),
+              icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+              label: const Text('Beli Lisensi Resmi di Weboz.my.id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              onPressed: () async {
+                final uri = Uri.parse('https://weboz.my.id/larisai?mid=${info.machineId}');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // CTA Button 2: WhatsApp Sales & Support
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.green.shade800,
+                side: BorderSide(color: Colors.green.shade400, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                backgroundColor: Colors.green.shade50.withValues(alpha: 0.5),
+              ),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+              label: const Text('Chat WhatsApp Admin (0888-1264-995)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              onPressed: () async {
+                final waText = 'Halo Admin Weboz, saya ingin membeli/aktivasi lisensi LarisAI untuk Machine ID: ${info.machineId}';
+                final uri = Uri.parse('https://wa.me/628881264995?text=${Uri.encodeComponent(waText)}');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
               },
             ),
