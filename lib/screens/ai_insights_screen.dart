@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
 import '../providers/ai_provider.dart';
+import '../widgets/settings_dialog.dart';
 
 class AiInsightsScreen extends StatefulWidget {
   const AiInsightsScreen({super.key});
@@ -123,6 +124,18 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Pengaturan',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const SettingsDialog(),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primaryDark,

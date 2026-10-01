@@ -47,6 +47,61 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     }
   }
 
+  Future<void> _openWebStore(String machineId) async {
+    final uri = Uri.parse('https://weboz.my.id/larisai?mid=$machineId');
+    try {
+      bool launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuka halaman web: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openWhatsApp(String machineId) async {
+    final waText = 'Halo Admin Weboz, saya ingin membeli/aktivasi lisensi LarisAI untuk Machine ID: $machineId';
+    final encoded = Uri.encodeComponent(waText);
+    
+    final waUrlScheme = 'whatsapp://send?phone=628881264995&text=$encoded';
+    final waWebUrl = 'https://wa.me/628881264995?text=$encoded';
+
+    try {
+      final uriWeb = Uri.parse(waWebUrl);
+      bool launched = await launchUrl(uriWeb, mode: LaunchMode.externalApplication);
+      
+      if (!launched) {
+        final uriScheme = Uri.parse(waUrlScheme);
+        launched = await launchUrl(uriScheme, mode: LaunchMode.externalApplication);
+      }
+
+      if (!launched) {
+        await launchUrl(uriWeb, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      try {
+        final uriScheme = Uri.parse(waUrlScheme);
+        await launchUrl(uriScheme, mode: LaunchMode.externalApplication);
+      } catch (e2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tidak dapat membuka WhatsApp. Silakan hubungi 0888-1264-995 secara manual.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -469,13 +524,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 backgroundColor: Colors.teal.shade50.withValues(alpha: 0.5),
               ),
               icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-              label: const Text('Beli Lisensi Resmi di Weboz.my.id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              onPressed: () async {
-                final uri = Uri.parse('https://weboz.my.id/larisai?mid=${info.machineId}');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+              label: const Text('Beli Lisensi Resmi di Weboz.my.id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
+              onPressed: () => _openWebStore(info.machineId),
             ),
           ),
 
@@ -493,14 +543,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 backgroundColor: Colors.green.shade50.withValues(alpha: 0.5),
               ),
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-              label: const Text('Chat WhatsApp Admin (0888-1264-995)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              onPressed: () async {
-                final waText = 'Halo Admin Weboz, saya ingin membeli/aktivasi lisensi LarisAI untuk Machine ID: ${info.machineId}';
-                final uri = Uri.parse('https://wa.me/628881264995?text=${Uri.encodeComponent(waText)}');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+              label: const Text('Chat WhatsApp Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
+              onPressed: () => _openWhatsApp(info.machineId),
             ),
           ),
         ],
@@ -555,6 +599,10 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final dialogWidth = (mediaQuery.size.width * 0.92).clamp(280.0, 480.0);
+    final dialogHeight = (mediaQuery.size.height * 0.60).clamp(320.0, 480.0);
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -600,8 +648,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         ],
       ),
       content: SizedBox(
-        width: 460,
-        height: 380,
+        width: dialogWidth,
+        height: dialogHeight,
         child: TabBarView(
           controller: _tabController,
           children: [

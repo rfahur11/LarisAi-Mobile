@@ -4,6 +4,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/analytics_model.dart';
 import '../services/api_service.dart';
+import '../widgets/settings_dialog.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -43,6 +44,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Text('Ringkasan Omset & Performa Kasir', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Pengaturan',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const SettingsDialog(),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))

@@ -8,6 +8,7 @@ import '../models/cart_item_model.dart';
 import '../providers/pos_provider.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/receipt_dialog.dart';
+import '../widgets/settings_dialog.dart';
 import 'scanner_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -1002,6 +1003,16 @@ class _PosScreenState extends State<PosScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Pengaturan',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const SettingsDialog(),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/desktop_header.dart';
-import '../widgets/settings_dialog.dart';
 import 'pos_screen.dart';
 import 'inventory_screen.dart';
 import 'ai_insights_screen.dart';
@@ -55,35 +54,9 @@ class _MainScreenState extends State<MainScreen> {
 
     // --- MOBILE LAYOUT (< 800px) ---
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: _screens,
-          ),
-          // Top right settings floating button
-          Positioned(
-            top: 45,
-            right: 8,
-            child: IconButton(
-              style: IconButton.styleFrom(
-                backgroundColor: (isDark ? AppColors.darkSurface : Colors.white).withValues(alpha: 0.9),
-                elevation: 1,
-              ),
-              icon: Icon(
-                Icons.settings_outlined,
-                size: 20,
-                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-              ),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => const SettingsDialog(),
-                );
-              },
-            ),
-          ),
-        ],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
