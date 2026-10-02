@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -306,10 +307,32 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             icon: Icons.table_chart_rounded,
             color: Colors.green.shade700,
             title: 'Ekspor Laporan Penjualan (CSV)',
-            subtitle: 'Riwayat transaksi, omset, metode bayar, dan rincian item',
+            subtitle: ExportService.instance.isDesktopPlatform
+                ? 'Simpan file CSV transaksi ke folder komputer pilihan Anda'
+                : 'Riwayat transaksi, omset, metode bayar, dan rincian item',
             onTap: () async {
               try {
-                await ExportService.instance.exportTransactionsCsv();
+                final result = await ExportService.instance.exportTransactionsCsv();
+                if (mounted && result.success && result.filePath != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Laporan CSV berhasil disimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.green.shade700,
+                      duration: const Duration(seconds: 4),
+                      action: ExportService.instance.isDesktopPlatform
+                          ? SnackBarAction(
+                              label: 'Buka Folder',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
+                            )
+                          : null,
+                    ),
+                  );
+                } else if (mounted && !result.isCancelled && result.message != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  );
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -326,10 +349,32 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             icon: Icons.inventory_2_rounded,
             color: Colors.blue.shade700,
             title: 'Ekspor Katalog Produk (CSV)',
-            subtitle: 'Daftar semua produk, stok, harga, dan kode barcode',
+            subtitle: ExportService.instance.isDesktopPlatform
+                ? 'Simpan file CSV katalog dan stok ke folder komputer'
+                : 'Daftar semua produk, stok, harga, dan kode barcode',
             onTap: () async {
               try {
-                await ExportService.instance.exportInventoryCsv();
+                final result = await ExportService.instance.exportInventoryCsv();
+                if (mounted && result.success && result.filePath != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Katalog CSV berhasil disimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.blue.shade700,
+                      duration: const Duration(seconds: 4),
+                      action: ExportService.instance.isDesktopPlatform
+                          ? SnackBarAction(
+                              label: 'Buka Folder',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
+                            )
+                          : null,
+                    ),
+                  );
+                } else if (mounted && !result.isCancelled && result.message != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  );
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -343,20 +388,42 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           const Divider(),
           const SizedBox(height: 8),
 
-          const Text('Cadangan & Pemulihan (Backup)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          const Text('Cadangan & Pemulihan (Backup & Restore)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
           const SizedBox(height: 4),
-          const Text('Simpan seluruh data database SQLite ke file backup untuk dipindahkan ke komputer/HP lain.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          const Text('Simpan seluruh database SQLite ke direktori lokal PC/HP atau pulihkan cadangan yang ada.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
           const SizedBox(height: 12),
 
-          // Button 3: Full Backup JSON
+          // Button 3: Full Backup JSON (Save to Local Folder on Desktop)
           _buildActionButton(
             icon: Icons.cloud_download_rounded,
             color: Colors.purple.shade700,
-            title: 'Backup Database Lengkap (.json)',
-            subtitle: 'Cadangkan seluruh tabel transaksi, stok, dan pelanggan',
+            title: 'Cadangkan Database Lengkap (.json)',
+            subtitle: ExportService.instance.isDesktopPlatform
+                ? 'Pilih direktori lokal di PC untuk menyimpan file cadangan'
+                : 'Cadangkan seluruh tabel transaksi, stok, dan pelanggan',
             onTap: () async {
               try {
-                await ExportService.instance.exportFullBackupJson();
+                final result = await ExportService.instance.exportFullBackupJson();
+                if (mounted && result.success && result.filePath != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Cadangan database tersimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.purple.shade700,
+                      duration: const Duration(seconds: 4),
+                      action: ExportService.instance.isDesktopPlatform
+                          ? SnackBarAction(
+                              label: 'Buka Folder',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
+                            )
+                          : null,
+                    ),
+                  );
+                } else if (mounted && !result.isCancelled && result.message != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  );
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -366,6 +433,63 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               }
             },
           ),
+          const SizedBox(height: 8),
+
+          // Button 4: Restore Backup from JSON
+          _buildActionButton(
+            icon: Icons.settings_backup_restore_rounded,
+            color: Colors.teal.shade700,
+            title: 'Pulihkan Database dari File (.json)',
+            subtitle: 'Pilih file backup .json dari komputer/HP untuk memulihkan transaksi & produk',
+            onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final posProvider = Provider.of<PosProvider>(context, listen: false);
+              final aiProvider = Provider.of<AiProvider>(context, listen: false);
+
+              try {
+                final res = await ExportService.instance.pickAndRestoreBackup();
+                if (res != null && mounted) {
+                  await posProvider.loadProducts();
+                  await posProvider.loadSummary();
+                  await aiProvider.loadAiData();
+
+                  final counts = res['counts'] as Map<String, int>? ?? {};
+                  final prodCount = counts['products_restored'] ?? 0;
+                  final txCount = counts['transactions_restored'] ?? 0;
+
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Berhasil memulihkan $prodCount produk dan $txCount transaksi!'),
+                      backgroundColor: Colors.teal.shade700,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Gagal memulihkan database: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+
+          if (ExportService.instance.isDesktopPlatform) ...[
+            // Button 5: Open Dedicated Backup Folder in Explorer (Desktop Only)
+            _buildActionButton(
+              icon: Icons.folder_open_rounded,
+              color: Colors.blueGrey.shade700,
+              title: 'Buka Folder Cadangan Otomatis',
+              subtitle: 'Buka direktori penyimpanan auto-backup di Windows File Explorer',
+              onTap: () async {
+                final dir = await ExportService.instance.getDedicatedBackupDirectory();
+                await ExportService.instance.openInExplorer(dir.path);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
@@ -713,16 +837,29 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
     if (shouldReset == true && mounted) {
       try {
-        // Auto-backup first for safety
-        await ExportService.instance.exportFullBackupJson();
+        // 1. Silent auto-backup to local disk (never blocks or throws UI popups)
+        final backupPath = await ExportService.instance.createSilentBackupJson();
+
+        // 2. Clear transactions & reset metrics to real zero
         await posProvider.clearTransactions();
         await aiProvider.loadAiData();
 
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('✅ Riwayat transaksi berhasil dibersihkan! Omset kembali ke Rp 0.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(
+              backupPath != null
+                  ? '✅ Riwayat transaksi dibersihkan! Omset kembali Rp 0.\nCadangan aman: ${backupPath.split(Platform.isWindows ? '\\' : '/').last}'
+                  : '✅ Riwayat transaksi berhasil dibersihkan! Omset kembali ke Rp 0.',
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 4),
+            action: backupPath != null && ExportService.instance.isDesktopPlatform
+                ? SnackBarAction(
+                    label: 'Buka Cadangan',
+                    textColor: Colors.white,
+                    onPressed: () => ExportService.instance.openInExplorer(backupPath),
+                  )
+                : null,
           ),
         );
       } catch (e) {
@@ -810,16 +947,25 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
     if (shouldReset == true && mounted) {
       try {
-        // Auto-backup first
-        await ExportService.instance.exportFullBackupJson();
-        await posProvider.factoryResetDatabase();
+        // 1. Silent auto-backup to local disk
+        final backupPath = await ExportService.instance.createSilentBackupJson();
+
+        // 2. Wipe database (products & transactions)
+        await posProvider.factoryResetDatabase(reseedStarterProducts: false);
         await aiProvider.loadAiData();
 
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('✅ Database berhasil di-reset ke kondisi awal!'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: const Text('✅ Database berhasil di-reset total! Produk & transaksi telah dikosongkan.'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+            action: backupPath != null && ExportService.instance.isDesktopPlatform
+                ? SnackBarAction(
+                    label: 'Buka Cadangan',
+                    textColor: Colors.white,
+                    onPressed: () => ExportService.instance.openInExplorer(backupPath),
+                  )
+                : null,
           ),
         );
       } catch (e) {

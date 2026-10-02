@@ -166,12 +166,13 @@ class PosProvider extends ChangeNotifier {
   Future<void> clearTransactions() async {
     await LocalDbService.instance.clearTransactionsOnly();
     clearCart();
+    await loadProducts();
     await loadSummary();
     notifyListeners();
   }
 
-  Future<void> factoryResetDatabase() async {
-    await LocalDbService.instance.factoryResetDatabase(reseedStarterProducts: true);
+  Future<void> factoryResetDatabase({bool reseedStarterProducts = false}) async {
+    await LocalDbService.instance.factoryResetDatabase(reseedStarterProducts: reseedStarterProducts);
     clearCart();
     await loadProducts();
     await loadSummary();

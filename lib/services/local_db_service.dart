@@ -112,7 +112,7 @@ class LocalDbService {
     return deletedCount;
   }
 
-  Future<void> factoryResetDatabase({bool reseedStarterProducts = true}) async {
+  Future<void> factoryResetDatabase({bool reseedStarterProducts = false}) async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('transaction_items');
@@ -337,7 +337,7 @@ class LocalDbService {
       ));
     }
 
-    if (payments.isEmpty) {
+    if (payments.isEmpty && totalOrders > 0) {
       payments = [
         PaymentBreakdown(paymentType: 'TUNAI', totalAmount: totalRevenue, count: totalOrders, percentage: 100.0),
       ];
@@ -361,15 +361,11 @@ class LocalDbService {
     }).toList();
 
     return AnalyticsSummary(
-      totalRevenue: totalRevenue > 0 ? totalRevenue : 2850000,
-      totalOrders: totalOrders > 0 ? totalOrders : 42,
-      averageOrderValue: avgOrder > 0 ? avgOrder : 67800,
+      totalRevenue: totalRevenue,
+      totalOrders: totalOrders,
+      averageOrderValue: avgOrder,
       paymentMethods: payments,
-      dailySales: dailySales.isNotEmpty ? dailySales : [
-        DailySale(date: '2026-09-27', totalAmount: 450000, orderCount: 7),
-        DailySale(date: '2026-09-28', totalAmount: 620000, orderCount: 10),
-        DailySale(date: '2026-09-29', totalAmount: 780000, orderCount: 12),
-      ],
+      dailySales: dailySales,
     );
   }
 
@@ -411,13 +407,7 @@ class LocalDbService {
     ''');
 
     if (rows.isEmpty) {
-      return [
-        CustomerCluster(customerId: 'CUST-Budi', clusterLabel: 'Loyal', frequencyCount: 14, monetaryValue: 1350000),
-        CustomerCluster(customerId: 'CUST-Siti', clusterLabel: 'Beresiko Churn', frequencyCount: 1, monetaryValue: 35000),
-        CustomerCluster(customerId: 'CUST-Agus', clusterLabel: 'Loyal', frequencyCount: 9, monetaryValue: 840000),
-        CustomerCluster(customerId: 'CUST-Rina', clusterLabel: 'Beresiko Churn', frequencyCount: 2, monetaryValue: 50000),
-        CustomerCluster(customerId: 'CUST-Dewi', clusterLabel: 'Reguler', frequencyCount: 5, monetaryValue: 310000),
-      ];
+      return [];
     }
 
     return rows.map((r) {
