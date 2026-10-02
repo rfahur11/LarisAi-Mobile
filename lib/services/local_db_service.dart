@@ -81,7 +81,7 @@ class LocalDbService {
     await _seedStarterProducts(db);
   }
 
-  Future<void> _seedStarterProducts(Database db) async {
+  Future<void> _seedStarterProducts(DatabaseExecutor db) async {
     final now = DateTime.now().toIso8601String();
     final starterProducts = [
       {'id': '1', 'barcode': '8992753112234', 'name': 'Indomie Goreng Original', 'category': 'Makanan', 'price': 3500, 'stock': 48, 'is_archived': 0, 'created_at': now, 'updated_at': now},
@@ -99,6 +99,29 @@ class LocalDbService {
       batch.insert('products', p);
     }
     await batch.commit(noResult: true);
+  }
+
+  // --- RESET & PURGE OPERATIONS ---
+  Future<int> clearTransactionsOnly() async {
+    final db = await database;
+    int deletedCount = 0;
+    await db.transaction((txn) async {
+      await txn.delete('transaction_items');
+      deletedCount = await txn.delete('transactions');
+    });
+    return deletedCount;
+  }
+
+  Future<void> factoryResetDatabase({bool reseedStarterProducts = true}) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('transaction_items');
+      await txn.delete('transactions');
+      await txn.delete('products');
+      if (reseedStarterProducts) {
+        await _seedStarterProducts(txn);
+      }
+    });
   }
 
   // --- PRODUCT OPERATIONS ---

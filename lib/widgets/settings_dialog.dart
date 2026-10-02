@@ -366,6 +366,46 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               }
             },
           ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+
+          // --- DANGER ZONE / DATA RESET ---
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'Zona Bahaya & Reset Data',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Gunakan setelah masa uji coba / training kasir atau tutup buku tahunan. Sistem otomatis mencadangkan data sebelum dihapus.',
+            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 12),
+
+          // Option 1: Bersihkan Riwayat Transaksi Saja
+          _buildActionButton(
+            icon: Icons.delete_sweep_rounded,
+            color: Colors.amber.shade800,
+            title: 'Hapus Riwayat Transaksi Saja',
+            subtitle: 'Reset omzet & nota kasir ke Rp 0. Katalog produk & stok TETAP AMAN.',
+            onTap: () => _confirmResetTransactions(context),
+          ),
+          const SizedBox(height: 8),
+
+          // Option 2: Factory Reset Database (Reset Semua)
+          _buildActionButton(
+            icon: Icons.delete_forever_rounded,
+            color: Colors.red.shade700,
+            title: 'Reset Pabrik Database (Hapus Semua)',
+            subtitle: 'Mengosongkan semua transaksi & produk. Hak lisensi perangkat tetap aktif.',
+            onTap: () => _confirmFactoryReset(context),
+          ),
         ],
       ),
     );
@@ -595,6 +635,199 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         ),
       ),
     );
+  }
+
+  Future<void> _confirmResetTransactions(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final posProvider = Provider.of<PosProvider>(context, listen: false);
+    final aiProvider = Provider.of<AiProvider>(context, listen: false);
+
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 24),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Hapus Riwayat Transaksi?',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tindakan ini akan menghapus seluruh data transaksi, nota kasir, dan laporan omzet kembali ke Rp 0.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.green.shade800, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Katalog produk, harga, dan stok Anda TETAP AMAN dan tidak akan terhapus.',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '💡 Sistem akan otomatis membuat cadangan (.json) sebelum pembersihan dimulai.',
+              style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade800,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Hapus Transaksi'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldReset == true && mounted) {
+      try {
+        // Auto-backup first for safety
+        await ExportService.instance.exportFullBackupJson();
+        await posProvider.clearTransactions();
+        await aiProvider.loadAiData();
+
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('✅ Riwayat transaksi berhasil dibersihkan! Omset kembali ke Rp 0.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Gagal reset transaksi: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmFactoryReset(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final posProvider = Provider.of<PosProvider>(context, listen: false);
+    final aiProvider = Provider.of<AiProvider>(context, listen: false);
+    final confirmController = TextEditingController();
+
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.dangerous_rounded, color: Colors.red.shade700, size: 24),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '🚨 Reset Pabrik Database?',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'PERINGATAN: Tindakan ini akan MENGHAPUS SEMUA transaksi dan SELURUH katalog produk di database.',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Hak lisensi perangkat Anda tetap tersimpan dan aktif. Salinan cadangan .json akan otomatis disimpan sebelum reset.',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Untuk konfirmasi, ketik kata "HAPUS" di bawah ini:',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: confirmController,
+                autofocus: true,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1),
+                decoration: const InputDecoration(
+                  hintText: 'Ketik HAPUS',
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onChanged: (val) => setDialogState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: confirmController.text.trim().toUpperCase() == 'HAPUS'
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: const Text('Reset Total'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (shouldReset == true && mounted) {
+      try {
+        // Auto-backup first
+        await ExportService.instance.exportFullBackupJson();
+        await posProvider.factoryResetDatabase();
+        await aiProvider.loadAiData();
+
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('✅ Database berhasil di-reset ke kondisi awal!'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Gagal reset pabrik: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override

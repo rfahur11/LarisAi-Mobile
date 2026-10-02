@@ -4,6 +4,7 @@ import '../models/cart_item_model.dart';
 import '../models/transaction_model.dart';
 import '../models/analytics_model.dart';
 import '../services/api_service.dart';
+import '../services/local_db_service.dart';
 
 class PosProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -159,5 +160,21 @@ class PosProvider extends ChangeNotifier {
     _products.insert(0, created);
     notifyListeners();
     return true;
+  }
+
+  // --- PURGE & RESET ACTIONS ---
+  Future<void> clearTransactions() async {
+    await LocalDbService.instance.clearTransactionsOnly();
+    clearCart();
+    await loadSummary();
+    notifyListeners();
+  }
+
+  Future<void> factoryResetDatabase() async {
+    await LocalDbService.instance.factoryResetDatabase(reseedStarterProducts: true);
+    clearCart();
+    await loadProducts();
+    await loadSummary();
+    notifyListeners();
   }
 }
