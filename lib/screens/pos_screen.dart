@@ -984,13 +984,14 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/images/larisai_logo.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
               ),
-              child: const Icon(Icons.point_of_sale, color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: 10),
             const Column(
