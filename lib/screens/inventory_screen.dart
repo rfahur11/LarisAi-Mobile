@@ -33,6 +33,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showAddProductDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final barcodeController = TextEditingController();
     final nameController = TextEditingController();
     final priceController = TextEditingController();
@@ -43,12 +44,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
+          backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_box_rounded, color: AppColors.primary),
-              SizedBox(width: 8),
-              Text('Tambah Produk Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const Icon(Icons.add_box_rounded, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Tambah Produk Baru',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -57,16 +66,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Barcode input with scan button
-                const Text('Barcode / SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('Barcode / SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: barcodeController,
-                        decoration: const InputDecoration(
+                        style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                        decoration: InputDecoration(
                           hintText: 'Kode barcode',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                          filled: true,
+                          fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
                         ),
                       ),
                     ),
@@ -84,32 +99,46 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           });
                         }
                       },
-                      icon: const Icon(Icons.qr_code_scanner, size: 20),
+                      icon: const Icon(Icons.qr_code_scanner, size: 20, color: Colors.white),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
                 // Name
-                const Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  decoration: InputDecoration(
                     hintText: 'Contoh: Teh Botol Sosro 450ml',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
                   ),
                 ),
                 const SizedBox(height: 12),
 
                 // Category Dropdown
-                const Text('Kategori', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('Kategori', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: category,
-                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  dropdownColor: isDark ? AppColors.darkCard : Colors.white,
+                  style: TextStyle(fontSize: 14, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                  ),
                   items: ['Makanan', 'Minuman', 'Sembako', 'Snack', 'Umum']
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14))))
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(fontSize: 14, color: isDark ? AppColors.darkTextMain : AppColors.textMain))))
                       .toList(),
                   onChanged: (val) {
                     if (val != null) setModalState(() => category = val);
@@ -124,14 +153,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                           const SizedBox(height: 6),
                           TextField(
                             controller: priceController,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
+                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            decoration: InputDecoration(
                               hintText: '10000',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                              filled: true,
+                              fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
                             ),
                           ),
                         ],
@@ -142,14 +177,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                           const SizedBox(height: 6),
                           TextField(
                             controller: stockController,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
+                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            decoration: InputDecoration(
                               hintText: '50',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                              filled: true,
+                              fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
                             ),
                           ),
                         ],
@@ -163,9 +204,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
+              child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
                 final name = nameController.text.trim();
                 final barcode = barcodeController.text.trim();
@@ -205,6 +250,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showCustomStockFilterDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     int tempVal = _customStockThreshold;
     StockOperator tempOp = _customStockOperator;
     final textEditCtrl = TextEditingController(text: tempVal.toString());
@@ -219,12 +265,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
               : (tempOp == StockOperator.gte ? 'Lebih Dari / Sama Dengan' : 'Kurang Dari / Sama Dengan');
 
           return AlertDialog(
+            backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.tune_rounded, color: AppColors.primary),
-                SizedBox(width: 8),
-                Text('Filter Jumlah Stok Kustom', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Icon(Icons.tune_rounded, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Filter Jumlah Stok Kustom',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
+                ),
               ],
             ),
             content: SingleChildScrollView(
@@ -232,9 +286,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Pilih operator dan masukkan jumlah target stok:',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                   ),
                   const SizedBox(height: 12),
 
@@ -245,7 +299,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: ChoiceChip(
                           label: const Text('≤ Kurang / Sama', style: TextStyle(fontSize: 11)),
                           selected: tempOp == StockOperator.lte,
-                          selectedColor: AppColors.primaryLight,
+                          selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
                           onSelected: (_) => setDialogState(() => tempOp = StockOperator.lte),
                         ),
                       ),
@@ -254,7 +309,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: ChoiceChip(
                           label: const Text('= Tepat Sama', style: TextStyle(fontSize: 11)),
                           selected: tempOp == StockOperator.eq,
-                          selectedColor: AppColors.primaryLight,
+                          selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
                           onSelected: (_) => setDialogState(() => tempOp = StockOperator.eq),
                         ),
                       ),
@@ -263,7 +319,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: ChoiceChip(
                           label: const Text('≥ Lebih / Sama', style: TextStyle(fontSize: 11)),
                           selected: tempOp == StockOperator.gte,
-                          selectedColor: AppColors.primaryLight,
+                          selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
                           onSelected: (_) => setDialogState(() => tempOp = StockOperator.gte),
                         ),
                       ),
@@ -275,9 +332,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withOpacity(0.5),
+                      color: isDark ? AppColors.darkSurface : AppColors.primaryLight.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -285,10 +342,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(opLabel, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            Text(opLabel, style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                             Text(
                               'Stok $opSymbol $tempVal unit',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primaryDark),
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? AppColors.primaryHover : AppColors.primaryDark),
                             ),
                           ],
                         ),
@@ -298,10 +355,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             controller: textEditCtrl,
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            decoration: const InputDecoration(
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            decoration: InputDecoration(
                               hintText: '0',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              filled: true,
+                              fillColor: isDark ? AppColors.darkCard : Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
                             ),
                             onChanged: (val) {
                               final numVal = int.tryParse(val) ?? 0;
@@ -332,7 +393,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
 
                   // 4. Quick Presets
-                  const Text('Pilihan Cepat:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                  Text('Pilihan Cepat:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
@@ -340,6 +401,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     children: [
                       ActionChip(
                         label: const Text('🔴 Habis (= 0)', style: TextStyle(fontSize: 10)),
+                        backgroundColor: isDark ? AppColors.darkSurface : null,
                         onPressed: () => setDialogState(() {
                           tempOp = StockOperator.eq;
                           tempVal = 0;
@@ -348,6 +410,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                       ActionChip(
                         label: const Text('🟡 Menipis (≤ 5)', style: TextStyle(fontSize: 10)),
+                        backgroundColor: isDark ? AppColors.darkSurface : null,
                         onPressed: () => setDialogState(() {
                           tempOp = StockOperator.lte;
                           tempVal = 5;
@@ -356,6 +419,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                       ActionChip(
                         label: const Text('🟠 Kritis (≤ 10)', style: TextStyle(fontSize: 10)),
+                        backgroundColor: isDark ? AppColors.darkSurface : null,
                         onPressed: () => setDialogState(() {
                           tempOp = StockOperator.lte;
                           tempVal = 10;
@@ -364,6 +428,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                       ActionChip(
                         label: const Text('🟢 Stok (≥ 20)', style: TextStyle(fontSize: 10)),
+                        backgroundColor: isDark ? AppColors.darkSurface : null,
                         onPressed: () => setDialogState(() {
                           tempOp = StockOperator.gte;
                           tempVal = 20;
@@ -378,9 +443,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
+                child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   setState(() {
                     _customStockThreshold = tempVal;
@@ -443,10 +512,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final allProducts = posProvider.products;
     final filteredProducts = _getFilteredProducts(allProducts);
 
+    final isMobile = MediaQuery.of(context).size.width < 700;
     final totalStockUnits = allProducts.fold<int>(0, (sum, p) => sum + p.stock);
     final totalInventoryValue = allProducts.fold<int>(0, (sum, p) => sum + (p.price * p.stock));
     final outOfStockCount = allProducts.where((p) => p.stock <= 0).length;
     final lowStockCount = allProducts.where((p) => p.stock > 0 && p.stock <= 5).length;
+    final inStockCount = allProducts.where((p) => p.stock > 5).length;
+    final isCustomFilterActive = _selectedStockFilter == StockFilterType.custom;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
@@ -485,15 +557,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-              onPressed: () => _showAddProductDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('+ Tambah Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
+            child: isMobile
+                ? IconButton.filled(
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 20, color: Colors.white),
+                    tooltip: 'Tambah Produk',
+                    onPressed: () => _showAddProductDialog(context),
+                  )
+                : ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    ),
+                    onPressed: () => _showAddProductDialog(context),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Tambah Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
           ),
         ],
       ),
@@ -537,9 +619,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
 
-          // 2. Search Box & Quick Scan
+          // 2. Search Box, Quick Scan & Custom Filter
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             color: isDark ? AppColors.darkBackground : AppColors.background,
             child: Row(
               children: [
@@ -548,7 +630,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Cari nama produk, SKU, atau barcode...',
+                      hintText: 'Cari nama produk, SKU, barcode...',
                       prefixIcon: Icon(Icons.search_rounded, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
@@ -563,7 +645,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 IconButton.filled(
                   tooltip: 'Scan Barcode Kamera',
                   style: IconButton.styleFrom(
@@ -582,85 +664,135 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   },
                   icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Colors.white),
                 ),
+                const SizedBox(width: 8),
+                // Custom Filter Button with Active Indicator
+                IconButton.filledTonal(
+                  tooltip: 'Filter Stok Kustom',
+                  style: IconButton.styleFrom(
+                    backgroundColor: isCustomFilterActive
+                        ? AppColors.accent
+                        : (isDark ? AppColors.darkCard : Colors.grey.shade200),
+                    foregroundColor: isCustomFilterActive
+                        ? Colors.white
+                        : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: isCustomFilterActive
+                            ? AppColors.accent
+                            : (isDark ? AppColors.darkBorder : AppColors.border),
+                      ),
+                    ),
+                  ),
+                  onPressed: () => _showCustomStockFilterDialog(context),
+                  icon: Badge(
+                    isLabelVisible: isCustomFilterActive,
+                    smallSize: 8,
+                    backgroundColor: Colors.amber,
+                    child: Icon(
+                      isCustomFilterActive ? Icons.filter_alt_rounded : Icons.tune_rounded,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
 
-          // 3. Stock Status Filter Chips Bar
+          // Active Custom Filter Pill Banner (if engaged)
+          if (isCustomFilterActive)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? AppColors.accent : Colors.amber.shade400),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_alt_rounded, size: 15, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Filter Kustom: Stok ${_customStockOperator == StockOperator.eq ? '=' : (_customStockOperator == StockOperator.gte ? '≥' : '≤')} $_customStockThreshold unit',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedStockFilter = StockFilterType.all;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade800 : Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Reset',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(Icons.close_rounded, size: 13, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 3. Stock Status Segmented Bar (Zero Horizontal Scroll)
           Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+            ),
+            child: Row(
               children: [
-                _buildStockFilterChip(
-                  label: 'Semua Stok (${allProducts.length})',
+                _buildStockSegment(
+                  title: 'Semua',
+                  count: allProducts.length,
                   filterType: StockFilterType.all,
                   isDark: isDark,
                 ),
-                const SizedBox(width: 6),
-                _buildStockFilterChip(
-                  label: '🔴 Habis ($outOfStockCount)',
+                _buildStockSegment(
+                  title: 'Habis',
+                  count: outOfStockCount,
                   filterType: StockFilterType.outOfStock,
-                  badgeColor: AppColors.danger,
+                  dotColor: AppColors.danger,
                   isDark: isDark,
                 ),
-                const SizedBox(width: 6),
-                _buildStockFilterChip(
-                  label: '🟡 Menipis ≤5 ($lowStockCount)',
+                _buildStockSegment(
+                  title: 'Menipis',
+                  count: lowStockCount,
                   filterType: StockFilterType.lowStock,
-                  badgeColor: AppColors.warning,
+                  dotColor: AppColors.warning,
                   isDark: isDark,
                 ),
-                const SizedBox(width: 6),
-                _buildStockFilterChip(
-                  label: '🟢 Aman >5',
+                _buildStockSegment(
+                  title: 'Aman',
+                  count: inStockCount,
                   filterType: StockFilterType.inStock,
-                  badgeColor: AppColors.success,
+                  dotColor: AppColors.success,
                   isDark: isDark,
-                ),
-                const SizedBox(width: 6),
-                // Custom Threshold Chip
-                ActionChip(
-                  avatar: Icon(
-                    _selectedStockFilter == StockFilterType.custom ? Icons.filter_alt_rounded : Icons.tune_rounded,
-                    size: 14,
-                    color: _selectedStockFilter == StockFilterType.custom ? Colors.white : AppColors.accent,
-                  ),
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _selectedStockFilter == StockFilterType.custom
-                            ? '🔢 Stok ${_customStockOperator == StockOperator.eq ? '=' : (_customStockOperator == StockOperator.gte ? '≥' : '≤')} $_customStockThreshold unit'
-                            : '🔢 Filter Stok Kustom...',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: _selectedStockFilter == StockFilterType.custom ? FontWeight.bold : FontWeight.normal,
-                          color: _selectedStockFilter == StockFilterType.custom ? Colors.white : (isDark ? AppColors.darkTextMain : AppColors.textMain),
-                        ),
-                      ),
-                      if (_selectedStockFilter == StockFilterType.custom) ...[
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedStockFilter = StockFilterType.all;
-                            });
-                          },
-                          child: const Icon(Icons.close_rounded, size: 14, color: Colors.white70),
-                        ),
-                      ],
-                    ],
-                  ),
-                  backgroundColor: _selectedStockFilter == StockFilterType.custom
-                      ? AppColors.accent
-                      : (isDark ? AppColors.darkSurface : Colors.white),
-                  side: BorderSide(
-                    color: _selectedStockFilter == StockFilterType.custom ? AppColors.accent : (isDark ? AppColors.darkBorder : AppColors.border),
-                  ),
-                  onPressed: () => _showCustomStockFilterDialog(context),
                 ),
               ],
             ),
@@ -674,7 +806,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: posProvider.categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              separatorBuilder: (context, index) => const SizedBox(width: 6),
               itemBuilder: (ctx, idx) {
                 final cat = posProvider.categories[idx];
                 final isSelected = _selectedCategory == cat;
@@ -741,7 +873,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                         itemCount: filteredProducts.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (context, index) => const SizedBox(height: 8),
                         itemBuilder: (ctx, idx) {
                           final product = filteredProducts[idx];
                           final isOutOfStock = product.stock <= 0;
@@ -878,28 +1010,93 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildStockFilterChip({
-    required String label,
+  Widget _buildStockSegment({
+    required String title,
+    required int count,
     required StockFilterType filterType,
-    Color? badgeColor,
+    Color? dotColor,
     required bool isDark,
   }) {
     final isSelected = _selectedStockFilter == filterType;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => setState(() => _selectedStockFilter = filterType),
-      selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
-      backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-      labelStyle: TextStyle(
-        fontSize: 11,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected
-            ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
-            : (isDark ? AppColors.darkTextMain : AppColors.textMain),
-      ),
-      side: BorderSide(
-        color: isSelected ? (badgeColor ?? AppColors.primary) : (isDark ? AppColors.darkBorder : AppColors.border),
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedStockFilter = filterType;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppColors.primary.withValues(alpha: 0.25) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: isSelected && !isDark
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+            border: isSelected
+                ? Border.all(
+                    color: isDark ? AppColors.primary : AppColors.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (dotColor != null) ...[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                            : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected
+                      ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                      : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
