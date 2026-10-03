@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/transaction_model.dart';
+import 'store_profile_service.dart';
 
 class PrinterService {
   static final PrinterService instance = PrinterService._init();
@@ -12,12 +13,20 @@ class PrinterService {
   Future<pw.Document> generateReceiptDocument({
     required Transaction transaction,
     required int cashTendered,
-    String storeName = 'TOKO LARIS UMKM',
-    String storeAddress = 'Jl. Pasar Ritel No. 88, Indonesia',
-    String storePhone = '0812-3456-7890',
-    String cashierName = 'Kasir 01',
+    String? storeName,
+    String? storeAddress,
+    String? storePhone,
+    String? cashierName,
+    String? receiptFooter,
     bool is80mm = false,
   }) async {
+    final profile = StoreProfileService.instance.profile;
+    final activeStoreName = (storeName != null && storeName.isNotEmpty) ? storeName : profile.storeName;
+    final activeStoreAddress = (storeAddress != null && storeAddress.isNotEmpty) ? storeAddress : profile.storeAddress;
+    final activeStorePhone = (storePhone != null && storePhone.isNotEmpty) ? storePhone : profile.storePhone;
+    final activeCashier = (cashierName != null && cashierName.isNotEmpty) ? cashierName : profile.ownerName;
+    final activeFooter = (receiptFooter != null && receiptFooter.isNotEmpty) ? receiptFooter : profile.receiptFooter;
+
     final doc = pw.Document();
     final pageFormat = is80mm ? PdfPageFormat.roll80 : PdfPageFormat.roll57;
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -37,18 +46,18 @@ class PrinterService {
             children: [
               // Store Header
               pw.Text(
-                storeName,
+                activeStoreName,
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
                 textAlign: pw.TextAlign.center,
               ),
               pw.SizedBox(height: 2),
               pw.Text(
-                storeAddress,
+                activeStoreAddress,
                 style: const pw.TextStyle(fontSize: 8),
                 textAlign: pw.TextAlign.center,
               ),
               pw.Text(
-                'Telp: $storePhone',
+                'Telp: $activeStorePhone',
                 style: const pw.TextStyle(fontSize: 8),
                 textAlign: pw.TextAlign.center,
               ),
@@ -63,7 +72,7 @@ class PrinterService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text('No: ${transaction.invoiceNo}', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Kasir: $cashierName', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Kasir: $activeCashier', style: const pw.TextStyle(fontSize: 8)),
                 ],
               ),
               pw.Row(
@@ -175,7 +184,7 @@ class PrinterService {
               // Footer
               pw.SizedBox(height: 4),
               pw.Text(
-                'Terima Kasih Atas Kunjungan Anda!',
+                activeFooter,
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5),
                 textAlign: pw.TextAlign.center,
               ),
@@ -204,7 +213,7 @@ class PrinterService {
   Future<bool> printReceipt({
     required Transaction transaction,
     required int cashTendered,
-    String storeName = 'TOKO LARIS UMKM',
+    String? storeName,
     bool is80mm = false,
   }) async {
     try {
@@ -228,7 +237,7 @@ class PrinterService {
   Future<void> shareReceiptPdf({
     required Transaction transaction,
     required int cashTendered,
-    String storeName = 'TOKO LARIS UMKM',
+    String? storeName,
   }) async {
     final doc = await generateReceiptDocument(
       transaction: transaction,

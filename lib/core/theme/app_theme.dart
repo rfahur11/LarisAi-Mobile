@@ -20,8 +20,8 @@ class AppColors {
   static const Color textMuted = Color(0xFF64748B); // Slate 500
   static const Color border = Color(0xFFE2E8F0); // Slate 200
 
-  // Dark Mode Canvas & Surfaces (Tailwind Slate 900 & 950)
-  static const Color darkBackground = Color(0xFF020617); // Slate 950
+  // Dark Mode Canvas & Surfaces (Weboz Tactile Deep Coastal Navy)
+  static const Color darkBackground = Color(0xFF0B132B); // Coastal Navy
   static const Color darkSurface = Color(0xFF0F172A); // Slate 900
   static const Color darkCard = Color(0xFF1E293B); // Slate 800
   static const Color darkTextMain = Color(0xFFF8FAFC); // Slate 50

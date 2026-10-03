@@ -25,7 +25,7 @@ class Product {
       category: json['category']?.toString() ?? 'Umum',
       price: (json['price'] is num) ? (json['price'] as num).toInt() : 0,
       stock: (json['stock'] is num) ? (json['stock'] as num).toInt() : 0,
-      isArchived: json['is_archived'] == true,
+      isArchived: json['is_archived'] == true || json['is_archived'] == 1,
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
+import '../core/constants/api_constants.dart';
 import '../models/product_model.dart';
 import '../models/cart_item_model.dart';
 import '../providers/pos_provider.dart';
@@ -24,6 +25,8 @@ class _PosScreenState extends State<PosScreen> {
   final TextEditingController _desktopCashController = TextEditingController();
   final TextEditingController _desktopRefController = TextEditingController();
   String _desktopPaymentType = 'TUNAI';
+  String _desktopSelectedBank = 'BCA';
+  String _desktopSelectedEwallet = 'GoPay';
   int _desktopCashTendered = 0;
   bool _isProcessingCheckout = false;
 
@@ -246,9 +249,21 @@ class _PosScreenState extends State<PosScreen> {
 
     setState(() => _isProcessingCheckout = true);
 
+    String customerNote = _desktopRefController.text.trim();
+    if (_desktopPaymentType == 'TRANSFER') {
+      final bankText = 'Transfer $_desktopSelectedBank';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($bankText)' : bankText;
+    } else if (_desktopPaymentType == 'EWALLET') {
+      final ewText = 'E-Wallet $_desktopSelectedEwallet';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($ewText)' : ewText;
+    } else if (_desktopPaymentType == 'DEBIT') {
+      const debitText = 'Kartu Debit/EDC';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($debitText)' : debitText;
+    }
+
     final tx = await posProvider.processCheckout(
       paymentType: _desktopPaymentType,
-      customerId: _desktopRefController.text.trim().isNotEmpty ? _desktopRefController.text.trim() : null,
+      customerId: customerNote.isNotEmpty ? customerNote : null,
     );
 
     setState(() => _isProcessingCheckout = false);
@@ -351,7 +366,7 @@ class _PosScreenState extends State<PosScreen> {
                   // Desktop Top Action Bar
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    color: Colors.white,
+                    color: isDark ? AppColors.darkSurface : Colors.white,
                     child: Row(
                       children: [
                         // Search Box (F1)
@@ -360,9 +375,21 @@ class _PosScreenState extends State<PosScreen> {
                             controller: _searchController,
                             focusNode: _searchFocusNode,
                             onChanged: (val) => posProvider.loadProducts(search: val),
+                            style: TextStyle(
+                              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                              fontSize: 13.5,
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Cari produk atau scan barcode... (Tekan F1)',
-                              prefixIcon: const Icon(Icons.search, color: AppColors.textMuted, size: 20),
+                              hintStyle: TextStyle(
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                size: 20,
+                              ),
                               suffixIcon: _searchController.text.isNotEmpty
                                   ? IconButton(
                                       icon: const Icon(Icons.clear, size: 18),
@@ -381,6 +408,9 @@ class _PosScreenState extends State<PosScreen> {
                         // F2 Add Product Button
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppColors.primaryHover : AppColors.primary,
+                            backgroundColor: isDark ? const Color(0xFF042F2E) : Colors.transparent,
+                            side: BorderSide(color: isDark ? const Color(0xFF0D9488) : AppColors.border),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -393,6 +423,8 @@ class _PosScreenState extends State<PosScreen> {
                         // Scan Barcode Button
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -408,7 +440,7 @@ class _PosScreenState extends State<PosScreen> {
                   Container(
                     height: 48,
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    color: Colors.white,
+                    color: isDark ? AppColors.darkSurface : Colors.white,
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       scrollDirection: Axis.horizontal,
@@ -421,21 +453,26 @@ class _PosScreenState extends State<PosScreen> {
                           label: Text(cat),
                           selected: isSelected,
                           onSelected: (_) => posProvider.setCategory(cat),
-                          selectedColor: AppColors.primaryLight,
-                          backgroundColor: Colors.grey.shade50,
+                          selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          backgroundColor: isDark ? AppColors.darkCard : Colors.grey.shade50,
                           labelStyle: TextStyle(
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? AppColors.primaryDark : AppColors.textMuted,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected
+                                ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                                : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                           ),
                           side: BorderSide(
-                            color: isSelected ? AppColors.primary : AppColors.border,
+                            color: isSelected
+                                ? AppColors.primary
+                                : (isDark ? AppColors.darkBorder : AppColors.border),
+                            width: isSelected ? 1.5 : 1,
                           ),
                         );
                       },
                     ),
                   ),
-                  const Divider(height: 1, color: AppColors.border),
+                  Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
 
                   // Product Grid
                   Expanded(
@@ -456,7 +493,7 @@ class _PosScreenState extends State<PosScreen> {
                                 padding: const EdgeInsets.all(20),
                                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: crossAxisCount,
-                                  childAspectRatio: 0.88,
+                                  childAspectRatio: 1.15,
                                   crossAxisSpacing: 14,
                                   mainAxisSpacing: 14,
                                 ),
@@ -476,11 +513,11 @@ class _PosScreenState extends State<PosScreen> {
           Container(
             width: 400,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: const Border(left: BorderSide(color: AppColors.border, width: 1.5)),
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              border: Border(left: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border, width: 1.5)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                   blurRadius: 10,
                   offset: const Offset(-2, 0),
                 ),
@@ -491,26 +528,40 @@ class _PosScreenState extends State<PosScreen> {
                 // Cart Header
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 18, 16, 14),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : Colors.white,
+                    border: Border(bottom: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
+                          color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.shopping_cart_rounded, color: AppColors.primaryDark, size: 20),
+                        child: Icon(Icons.shopping_cart_rounded, color: isDark ? AppColors.primaryHover : AppColors.primaryDark, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Keranjang Belanja', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text('${posProvider.totalItems} item dipilih', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            Text(
+                              'Keranjang Belanja',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                              ),
+                            ),
+                            Text(
+                              '${posProvider.totalItems} item dipilih',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -528,21 +579,58 @@ class _PosScreenState extends State<PosScreen> {
                 Expanded(
                   child: posProvider.cart.isEmpty
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_shopping_cart_rounded, size: 48, color: Colors.grey.shade300),
-                              const SizedBox(height: 10),
-                              const Text('Keranjang Masih Kosong', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              const SizedBox(height: 4),
-                              const Text('Pilih barang di katalog atau scan barcode', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                            ],
+                          child: Container(
+                            margin: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkCard.withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark ? AppColors.darkBorder : AppColors.border,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? AppColors.primaryHover : AppColors.primary).withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.point_of_sale_rounded,
+                                    size: 32,
+                                    color: isDark ? AppColors.primaryHover : AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Keranjang Belum Terisi',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Pilih barang di katalog atau scan barcode dengan tombol F1',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           itemCount: posProvider.cart.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                          separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
                           itemBuilder: (ctx, idx) {
                             final item = posProvider.cart[idx];
                             return _buildDesktopCartRow(item, posProvider);
@@ -717,15 +805,15 @@ class _PosScreenState extends State<PosScreen> {
                             spacing: 5,
                             runSpacing: 5,
                             children: [
-                              _buildQuickCashChip('10rb', 10000),
-                              _buildQuickCashChip('20rb', 20000),
-                              _buildQuickCashChip('50rb', 50000),
-                              _buildQuickCashChip('100rb', 100000),
-                              _buildQuickCashChip('200rb', 200000),
-                              _buildQuickAddCashChip('+5rb', 5000, posProvider),
-                              _buildQuickAddCashChip('+10rb', 10000, posProvider),
-                              _buildQuickAddCashChip('+20rb', 20000, posProvider),
-                              _buildQuickAddCashChip('+50rb', 50000, posProvider),
+                              _buildQuickCashChip('10rb', 10000, isDark),
+                              _buildQuickCashChip('20rb', 20000, isDark),
+                              _buildQuickCashChip('50rb', 50000, isDark),
+                              _buildQuickCashChip('100rb', 100000, isDark),
+                              _buildQuickCashChip('200rb', 200000, isDark),
+                              _buildQuickAddCashChip('+5rb', 5000, posProvider, isDark),
+                              _buildQuickAddCashChip('+10rb', 10000, posProvider, isDark),
+                              _buildQuickAddCashChip('+20rb', 20000, posProvider, isDark),
+                              _buildQuickAddCashChip('+50rb', 50000, posProvider, isDark),
                             ],
                           ),
                       ] else if (_desktopPaymentType == 'QRIS') ...[
@@ -733,16 +821,16 @@ class _PosScreenState extends State<PosScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E1B4B) : AppColors.accentLight.withOpacity(0.4),
+                            color: isDark ? const Color(0xFF1E1B4B) : AppColors.accentLight.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: isDark ? Colors.white : Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(Icons.qr_code_2_rounded, size: 36, color: AppColors.accent),
@@ -752,10 +840,27 @@ class _PosScreenState extends State<PosScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('QRIS Dinamis / Statis Toko', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    Row(
+                                      children: [
+                                        Text('QRIS Toko', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            ApiConstants.isOfflineMode ? '0% MDR' : 'Auto Webhook',
+                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDark ? AppColors.primaryHover : AppColors.primaryDark),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
                                     Text(
-                                      'Minta pelanggan scan QRIS sebesar ${CurrencyFormatter.format(posProvider.totalAmount)}',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      'Minta pelanggan scan QRIS & cek bukti bayar di HP.',
+                                      style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                                     ),
                                   ],
                                 ),
@@ -763,27 +868,149 @@ class _PosScreenState extends State<PosScreen> {
                             ],
                           ),
                         ),
-                      ] else ...[
-                        // Transfer / Debit / E-Wallet Reference Input
-                        TextField(
-                          controller: _desktopRefController,
-                          decoration: InputDecoration(
-                            hintText: _desktopPaymentType == 'TRANSFER'
-                                ? 'No. Referensi / Bank Pengirim (opsional)'
-                                : (_desktopPaymentType == 'DEBIT'
-                                    ? 'No. Kartu / Approval Code EDC (opsional)'
-                                    : 'No. HP / ID E-Wallet Pelanggan (opsional)'),
-                            prefixIcon: Icon(
-                              _desktopPaymentType == 'TRANSFER'
-                                  ? Icons.account_balance_outlined
-                                  : (_desktopPaymentType == 'DEBIT' ? Icons.credit_card : Icons.phone_android),
-                              size: 18,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ] else if (_desktopPaymentType == 'TRANSFER') ...[
+                        // Bank Selection Chips
+                        Text('Pilih Bank Tujuan Toko:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: ['BCA', 'Mandiri', 'BRI', 'BNI'].map((bank) {
+                            final isBankSelected = _desktopSelectedBank == bank;
+                            return Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    bank,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: isBankSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isBankSelected
+                                          ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                                          : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                    ),
+                                  ),
+                                  selected: isBankSelected,
+                                  selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                                  backgroundColor: isDark ? AppColors.darkCard : Colors.grey.shade50,
+                                  side: BorderSide(
+                                    color: isBankSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border),
+                                  ),
+                                  onSelected: (_) => setState(() => _desktopSelectedBank = bank),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkCard : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.account_balance_outlined, color: AppColors.primary, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Transfer Bank $_desktopSelectedBank toko. Tidak perlu input nomor kartu/rekening.',
+                                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_desktopPaymentType == 'EWALLET') ...[
+                        // E-Wallet Choice
+                        Text('Pilih E-Wallet Pelanggan / Toko:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: ['GoPay', 'OVO', 'DANA', 'ShopeePay'].map((ew) {
+                            final isEwSelected = _desktopSelectedEwallet == ew;
+                            return Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    ew,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: isEwSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isEwSelected
+                                          ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                                          : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                    ),
+                                  ),
+                                  selected: isEwSelected,
+                                  selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                                  backgroundColor: isDark ? AppColors.darkCard : Colors.grey.shade50,
+                                  side: BorderSide(
+                                    color: isEwSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border),
+                                  ),
+                                  onSelected: (_) => setState(() => _desktopSelectedEwallet = ew),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkCard : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.phone_android_rounded, color: AppColors.primary, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Pembayaran via $_desktopSelectedEwallet toko. Tidak perlu input nomor HP pelanggan.',
+                                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_desktopPaymentType == 'DEBIT') ...[
+                        // Debit EDC
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkCard : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 22),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Mesin EDC Toko. Gesek atau tap kartu di mesin EDC kasir. Tidak perlu input nomor kartu.',
+                                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
 
+                      const SizedBox(height: 8),
+
+                      // Optional note field
+                      TextField(
+                        controller: _desktopRefController,
+                        decoration: const InputDecoration(
+                          hintText: 'Nama / Catatan Pelanggan (opsional)',
+                          prefixIcon: Icon(Icons.edit_note_rounded, size: 18),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
                       const SizedBox(height: 12),
 
                       // Selesaikan Transaksi (F9) Big Button
@@ -833,14 +1060,16 @@ class _PosScreenState extends State<PosScreen> {
           }
         }),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: isSelected
                 ? (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)
-                : (isDark ? AppColors.darkBackground : Colors.white),
+                : (isDark ? AppColors.darkCard : Colors.white),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border),
+              color: isSelected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.darkBorder : AppColors.border),
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -850,8 +1079,10 @@ class _PosScreenState extends State<PosScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10.5,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? AppColors.primaryDark : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected
+                  ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                  : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
             ),
           ),
         ),
@@ -859,7 +1090,7 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _buildQuickCashChip(String label, int amount) {
+  Widget _buildQuickCashChip(String label, int amount, bool isDark) {
     final isSelected = _desktopCashTendered == amount;
     return InkWell(
       onTap: () => setState(() {
@@ -868,25 +1099,33 @@ class _PosScreenState extends State<PosScreen> {
       }),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryDark : Colors.white,
+          color: isSelected
+              ? AppColors.primary
+              : (isDark ? AppColors.darkCard : Colors.white),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isSelected ? AppColors.primaryDark : AppColors.border),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : (isDark ? AppColors.darkBorder : AppColors.border),
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : AppColors.textMain,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? AppColors.darkTextMain : AppColors.textMain),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildQuickAddCashChip(String label, int addAmount, PosProvider posProvider) {
+  Widget _buildQuickAddCashChip(String label, int addAmount, PosProvider posProvider, bool isDark) {
     return InkWell(
       onTap: () => setState(() {
         final base = _desktopCashTendered > 0 ? _desktopCashTendered : posProvider.totalAmount;
@@ -895,18 +1134,20 @@ class _PosScreenState extends State<PosScreen> {
       }),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: AppColors.accentLight.withOpacity(0.6),
+          color: isDark ? const Color(0xFF1E1B4B) : AppColors.accentLight.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF4338CA) : AppColors.accent.withValues(alpha: 0.3),
+          ),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: AppColors.accent,
+            color: isDark ? const Color(0xFFA5B4FC) : AppColors.accent,
           ),
         ),
       ),
@@ -914,6 +1155,7 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Widget _buildDesktopCartRow(CartItem item, PosProvider posProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -924,14 +1166,21 @@ class _PosScreenState extends State<PosScreen> {
               children: [
                 Text(
                   item.product.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   CurrencyFormatter.format(item.product.price),
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -942,7 +1191,11 @@ class _PosScreenState extends State<PosScreen> {
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.remove_circle_outline, size: 18, color: AppColors.textMuted),
+                icon: Icon(
+                  Icons.remove_circle_outline,
+                  size: 18,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                ),
                 onPressed: () => posProvider.decreaseQuantity(item.product),
               ),
               Container(
@@ -950,7 +1203,11 @@ class _PosScreenState extends State<PosScreen> {
                 alignment: Alignment.center,
                 child: Text(
                   '${item.quantity}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
                 ),
               ),
               IconButton(
@@ -968,7 +1225,11 @@ class _PosScreenState extends State<PosScreen> {
             child: Text(
               CurrencyFormatter.format(item.subtotal),
               textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+              ),
             ),
           ),
         ],
@@ -1210,158 +1471,264 @@ class _PosScreenState extends State<PosScreen> {
   // SHARED PRODUCT CARD WIDGET
   // ==========================================
   Widget _buildProductCard(BuildContext context, Product product, PosProvider posProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cartIndex = posProvider.cart.indexWhere((c) => c.product.id == product.id);
     final inCartQty = cartIndex >= 0 ? posProvider.cart[cartIndex].quantity : 0;
     final isOutOfStock = product.stock <= 0;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: inCartQty > 0 ? AppColors.primary : AppColors.border,
-          width: inCartQty > 0 ? 1.5 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: isOutOfStock ? null : () => posProvider.addToCart(product),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Badge Area
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.grey.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      product.category,
-                      style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Text(
-                    'Stok: ${product.stock}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: product.stock <= 5 ? AppColors.danger : AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    // Tactical Semantic Category Anchor
+    IconData catIcon;
+    Color catAccent;
+    switch (product.category.toLowerCase()) {
+      case 'minuman':
+        catIcon = Icons.local_cafe_rounded;
+        catAccent = const Color(0xFF0284C7); // Azure / Sky
+        break;
+      case 'makanan':
+        catIcon = Icons.restaurant_rounded;
+        catAccent = const Color(0xFFEA580C); // Warm Orange
+        break;
+      case 'sembako':
+        catIcon = Icons.inventory_2_rounded;
+        catAccent = const Color(0xFF16A34A); // Emerald / Green
+        break;
+      case 'snack':
+        catIcon = Icons.cookie_rounded;
+        catAccent = const Color(0xFFD97706); // Amber
+        break;
+      default:
+        catIcon = Icons.sell_rounded;
+        catAccent = const Color(0xFF6366F1); // Indigo
+    }
 
-            // Middle Product Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: inCartQty > 0
+              ? AppColors.primary
+              : (isDark ? AppColors.darkBorder : AppColors.border),
+          width: inCartQty > 0 ? 1.8 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: isOutOfStock ? null : () => posProvider.addToCart(product),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Category Icon Pill & Stock Status
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppColors.textMain,
+                    // Category Badge with icon
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: catAccent.withValues(alpha: isDark ? 0.15 : 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: catAccent.withValues(alpha: isDark ? 0.35 : 0.2),
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(catIcon, size: 12, color: catAccent),
+                          const SizedBox(width: 4),
+                          Text(
+                            product.category,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: catAccent,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+
+                    // Stock Status Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isOutOfStock
+                            ? AppColors.danger.withValues(alpha: 0.12)
+                            : (product.stock <= 5
+                                ? AppColors.warning.withValues(alpha: 0.12)
+                                : (isDark ? const Color(0xFF0F172A) : Colors.grey.shade100)),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        isOutOfStock ? 'Habis' : 'Stok: ${product.stock}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isOutOfStock
+                              ? AppColors.danger
+                              : (product.stock <= 5
+                                  ? AppColors.warning
+                                  : (isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Product Name (Bold, High Contrast, 2 Lines)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (product.barcode.isNotEmpty) ...[
+                        const SizedBox(height: 3),
                         Text(
-                          CurrencyFormatter.format(product.price),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.primaryDark,
+                          product.barcode,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontFamily: 'monospace',
+                            letterSpacing: 0.3,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                           ),
                         ),
-                        if (product.barcode.isNotEmpty)
-                          Text(
-                            product.barcode,
-                            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
-                          ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
 
-            // Bottom Cart Button or Quantity Counter
-            if (isOutOfStock)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                color: Colors.grey.shade200,
-                alignment: Alignment.center,
-                child: const Text(
-                  'Habis',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
-                ),
-              )
-            else if (inCartQty > 0)
-              Container(
-                color: AppColors.primaryLight,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
+                // Bottom Section: Price & Action Stepper / Add Button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    InkWell(
-                      onTap: () => posProvider.decreaseQuantity(product),
-                      child: const Icon(Icons.remove, size: 18, color: AppColors.primaryDark),
-                    ),
+                    // Price Tag
                     Text(
-                      '$inCartQty di Keranjang',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => posProvider.addToCart(product),
-                      child: const Icon(Icons.add, size: 18, color: AppColors.primaryDark),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                color: AppColors.primary.withValues(alpha: 0.08),
-                alignment: Alignment.center,
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_shopping_cart, size: 14, color: AppColors.primary),
-                    SizedBox(width: 4),
-                    Text(
-                      'Tambah',
+                      CurrencyFormatter.format(product.price),
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
                       ),
                     ),
+
+                    // Cart Quantity Stepper or Add Button
+                    if (isOutOfStock)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Kosong',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          ),
+                        ),
+                      )
+                    else if (inCartQty > 0)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: () => posProvider.decreaseQuantity(product),
+                              child: const Padding(
+                                padding: EdgeInsets.all(2),
+                                child: Icon(Icons.remove, size: 16, color: AppColors.primary),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                '$inCartQty',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => posProvider.addToCart(product),
+                              child: const Padding(
+                                padding: EdgeInsets.all(2),
+                                child: Icon(Icons.add, size: 16, color: AppColors.primary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF0D9488) : AppColors.primary.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add_shopping_cart_rounded,
+                              size: 13,
+                              color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '+ Tambah',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

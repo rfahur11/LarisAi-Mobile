@@ -6,6 +6,8 @@ import '../core/utils/currency_formatter.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/store_profile_service.dart';
+import 'order_history_dialog.dart';
 import 'settings_dialog.dart';
 
 class DesktopHeader extends StatelessWidget {
@@ -30,81 +32,87 @@ class DesktopHeader extends StatelessWidget {
     final lowStock = posProvider.lowStockCount;
     final stockouts = aiProvider.stockouts.length;
 
-    return Container(
-      color: isDark ? AppColors.darkSurface : Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Top Navbar Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.border,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Brand Logo & Title
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(
-                    'assets/images/larisai_logo.png',
-                    width: 38,
-                    height: 38,
-                    fit: BoxFit.cover,
+    return AnimatedBuilder(
+      animation: StoreProfileService.instance,
+      builder: (context, _) {
+        final profile = StoreProfileService.instance.profile;
+
+        return Container(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Top Navbar Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? AppColors.darkBorder : AppColors.border,
+                      width: 1,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
+                    // Brand Logo & Title
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/images/larisai_logo.png',
+                        width: 38,
+                        height: 38,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'LarisAI',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'LarisAI',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isDark ? const Color(0xFF115E59) : AppColors.primary.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Text(
+                                'SMART POS UMKM',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF115E59) : AppColors.primary.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            'SMART POS UMKM',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
-                              letterSpacing: 0.5,
-                            ),
+                        Text(
+                          profile.storeName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                           ),
                         ),
                       ],
                     ),
-                    Text(
-                      'Motor Phase: AI & Prediksi',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
 
-                const Spacer(),
+                    const Spacer(),
 
                 // Live Cashier Status Pill
                 Container(
@@ -225,7 +233,7 @@ class DesktopHeader extends StatelessWidget {
                       const Icon(Icons.account_circle_rounded, size: 18, color: AppColors.primary),
                       const SizedBox(width: 6),
                       Text(
-                        'Kasir 01',
+                        profile.ownerName,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -289,7 +297,7 @@ class DesktopHeader extends StatelessWidget {
 
           // 3. Bento-Box Dashboard Metrics Header
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
             color: isDark ? AppColors.darkBackground : AppColors.background,
             child: Row(
               children: [
@@ -298,11 +306,11 @@ class DesktopHeader extends StatelessWidget {
                   child: _buildBentoCard(
                     title: 'UANG MASUK HARI INI',
                     value: CurrencyFormatter.format(totalRevenue),
-                    subtitle: 'Siap dicatat ke pembukuan',
+                    subtitle: 'Klik untuk lihat laporan pembukuan',
                     icon: Icons.trending_up_rounded,
                     iconColor: AppColors.success,
-                    iconBgColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
                     isDark: isDark,
+                    onTap: () => onTabSelected(3),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -312,11 +320,16 @@ class DesktopHeader extends StatelessWidget {
                   child: _buildBentoCard(
                     title: 'TOTAL TRANSAKSI',
                     value: '$totalOrders Penjualan',
-                    subtitle: 'Hari ini berjalan lancar',
-                    icon: Icons.shopping_bag_rounded,
-                    iconColor: Colors.blue,
-                    iconBgColor: isDark ? const Color(0xFF172554) : Colors.blue.shade50,
+                    subtitle: 'Klik untuk riwayat nota & cetak struk',
+                    icon: Icons.receipt_long_rounded,
+                    iconColor: const Color(0xFF0284C7),
                     isDark: isDark,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => const OrderHistoryDialog(),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -326,11 +339,11 @@ class DesktopHeader extends StatelessWidget {
                   child: _buildBentoCard(
                     title: 'STOK MENIPIS',
                     value: '$lowStock Produk',
-                    subtitle: lowStock > 0 ? 'Perlu re-stock segera' : 'Stok inventori aman',
+                    subtitle: lowStock > 0 ? 'Klik untuk cek katalog inventori' : 'Inventori aman • Klik untuk katalog',
                     icon: Icons.warning_amber_rounded,
                     iconColor: AppColors.warning,
-                    iconBgColor: isDark ? const Color(0xFF451A03) : Colors.amber.shade50,
                     isDark: isDark,
+                    onTap: () => onTabSelected(1),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -340,11 +353,11 @@ class DesktopHeader extends StatelessWidget {
                   child: _buildBentoCard(
                     title: 'AI STOCKOUT RADAR',
                     value: '$stockouts Prediksi Habis',
-                    subtitle: 'Estimasi 1-4 hari ke depan',
+                    subtitle: 'Klik untuk analisis radar cerdas',
                     icon: Icons.auto_awesome_rounded,
                     iconColor: AppColors.accent,
-                    iconBgColor: isDark ? const Color(0xFF1E1B4B) : AppColors.accentLight,
                     isDark: isDark,
+                    onTap: () => onTabSelected(2),
                   ),
                 ),
               ],
@@ -352,6 +365,8 @@ class DesktopHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -431,69 +446,95 @@ class DesktopHeader extends StatelessWidget {
     required String subtitle,
     required IconData icon,
     required Color iconColor,
-    required Color iconBgColor,
     required bool isDark,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.border,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: iconBgColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 16),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        hoverColor: iconColor.withValues(alpha: isDark ? 0.08 : 0.04),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.border,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: iconColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Icon(icon, color: iconColor, size: 15),
+                      ),
+                      if (onTap != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 14,
+                          color: isDark ? AppColors.darkTextMuted : Colors.grey.shade400,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 10,
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

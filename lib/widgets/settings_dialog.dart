@@ -8,6 +8,7 @@ import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../services/export_service.dart';
 import '../services/license_service.dart';
+import '../services/store_profile_service.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -24,17 +25,31 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   late ConnectionMode _selectedMode;
   bool _showAdvanced = false;
 
+  late TextEditingController _storeNameController;
+  late TextEditingController _ownerNameController;
+  late TextEditingController _storeAddressController;
+  late TextEditingController _storePhoneController;
+  late TextEditingController _receiptFooterController;
+
   LicenseInfo? _licenseInfo;
   bool _isLoadingLicense = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _selectedMode = ApiConstants.currentMode;
     _posController = TextEditingController(text: ApiConstants.posBaseUrl);
     _aiController = TextEditingController(text: ApiConstants.aiBaseUrl);
     _licenseController = TextEditingController();
+
+    final profile = StoreProfileService.instance.profile;
+    _storeNameController = TextEditingController(text: profile.storeName);
+    _ownerNameController = TextEditingController(text: profile.ownerName);
+    _storeAddressController = TextEditingController(text: profile.storeAddress);
+    _storePhoneController = TextEditingController(text: profile.storePhone);
+    _receiptFooterController = TextEditingController(text: profile.receiptFooter);
+
     _loadLicense();
   }
 
@@ -109,6 +124,11 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     _posController.dispose();
     _aiController.dispose();
     _licenseController.dispose();
+    _storeNameController.dispose();
+    _ownerNameController.dispose();
+    _storeAddressController.dispose();
+    _storePhoneController.dispose();
+    _receiptFooterController.dispose();
     super.dispose();
   }
 
@@ -145,6 +165,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     required Color badgeColor,
     required Color accentColor,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _selectedMode == mode;
     return GestureDetector(
       onTap: () => _selectMode(mode),
@@ -153,14 +174,18 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isSelected ? accentColor.withValues(alpha: 0.08) : Colors.grey.shade50,
+          color: isSelected
+              ? accentColor.withValues(alpha: isDark ? 0.2 : 0.08)
+              : (isDark ? AppColors.darkSurface : Colors.grey.shade50),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? accentColor : Colors.grey.shade200,
+            color: isSelected
+                ? accentColor
+                : (isDark ? AppColors.darkBorder : Colors.grey.shade200),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: accentColor.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))]
+              ? [BoxShadow(color: accentColor.withValues(alpha: isDark ? 0.25 : 0.15), blurRadius: 8, offset: const Offset(0, 2))]
               : [],
         ),
         child: Row(
@@ -169,10 +194,12 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isSelected ? accentColor.withValues(alpha: 0.15) : Colors.grey.shade100,
+                color: isSelected
+                    ? accentColor.withValues(alpha: isDark ? 0.25 : 0.15)
+                    : (isDark ? AppColors.darkCard : Colors.grey.shade100),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: isSelected ? accentColor : Colors.grey.shade500, size: 22),
+              child: Icon(icon, color: isSelected ? accentColor : (isDark ? AppColors.darkTextMuted : Colors.grey.shade500), size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -186,14 +213,14 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isSelected ? accentColor : AppColors.textMain,
+                          color: isSelected ? accentColor : (isDark ? AppColors.darkTextMain : AppColors.textMain),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: badgeColor.withValues(alpha: 0.15),
+                          color: badgeColor.withValues(alpha: isDark ? 0.25 : 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -204,7 +231,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(subtitle, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                  Text(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
                 ],
               ),
             ),
@@ -215,7 +242,185 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     );
   }
 
+  Future<void> _saveStoreProfile() async {
+    await StoreProfileService.instance.saveProfile(
+      StoreProfile(
+        storeName: _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim(),
+        ownerName: _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim(),
+        storeAddress: _storeAddressController.text.trim(),
+        storePhone: _storePhoneController.text.trim(),
+        receiptFooter: _receiptFooterController.text.trim().isEmpty
+            ? 'Terima Kasih Atas Kunjungan Anda!'
+            : _receiptFooterController.text.trim(),
+      ),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Profil Toko & UMKM berhasil disimpan!'),
+          backgroundColor: AppColors.primary,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Widget _buildStoreProfileTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Identitas Usaha & Struk Kasir',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Data ini otomatis dicetak pada struk thermal, file PDF, serta header sistem POS.',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildProfileInputField(
+            controller: _storeNameController,
+            label: 'Nama UMKM / Toko',
+            hint: 'Contoh: Toko Berkah Jaya UMKM',
+            icon: Icons.storefront_rounded,
+          ),
+          const SizedBox(height: 10),
+
+          _buildProfileInputField(
+            controller: _ownerNameController,
+            label: 'Nama Pemilik / Kasir Utama',
+            hint: 'Contoh: Budi Santoso / Kasir 01',
+            icon: Icons.person_rounded,
+          ),
+          const SizedBox(height: 10),
+
+          _buildProfileInputField(
+            controller: _storeAddressController,
+            label: 'Alamat Usaha',
+            hint: 'Contoh: Jl. Pasar Ritel No. 88, Indonesia',
+            icon: Icons.place_rounded,
+            maxLines: 2,
+          ),
+          const SizedBox(height: 10),
+
+          _buildProfileInputField(
+            controller: _storePhoneController,
+            label: 'Nomor Telepon / WhatsApp',
+            hint: 'Contoh: 0812-3456-7890',
+            icon: Icons.phone_android_rounded,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 10),
+
+          _buildProfileInputField(
+            controller: _receiptFooterController,
+            label: 'Catatan Kaki Struk (Footer)',
+            hint: 'Contoh: Terima Kasih Atas Kunjungan Anda!',
+            icon: Icons.receipt_long_rounded,
+            maxLines: 2,
+          ),
+          const SizedBox(height: 14),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _saveStoreProfile,
+              icon: const Icon(Icons.save_rounded, size: 18),
+              label: const Text('Simpan Profil UMKM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: AppColors.primary),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              fontSize: 11.5,
+              color: isDark ? AppColors.darkTextMuted.withValues(alpha: 0.6) : Colors.grey.shade400,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            filled: true,
+            fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildNetworkTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -262,28 +467,101 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             onTap: () => setState(() => _showAdvanced = !_showAdvanced),
             child: Row(
               children: [
-                Icon(_showAdvanced ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 18, color: AppColors.textMuted),
+                Icon(
+                  _showAdvanced ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                ),
                 const SizedBox(width: 4),
-                const Text('Kustomisasi Endpoint (Advanced)', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                Text(
+                  'Kustomisasi Endpoint (Advanced)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
           if (_showAdvanced) ...[
             const SizedBox(height: 8),
-            const Text('POS Backend URL:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(
+              'POS Backend URL:',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+            ),
             const SizedBox(height: 4),
             TextField(
               controller: _posController,
-              style: const TextStyle(fontSize: 12),
-              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), isDense: true),
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                isDense: true,
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
-            const Text('AI Engine URL:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(
+              'AI Engine URL:',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+            ),
             const SizedBox(height: 4),
             TextField(
               controller: _aiController,
-              style: const TextStyle(fontSize: 12),
-              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), isDense: true),
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                isDense: true,
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
             ),
           ],
         ],
@@ -292,36 +570,50 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   }
 
   Widget _buildExportTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Ekspor Laporan & Pembukuan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text(
+            'Ekspor Laporan & Pembukuan Excel (.xlsx)',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('Unduh laporan dalam format CSV yang kompatibel dengan Microsoft Excel dan Google Sheets.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(
+            'Unduh laporan dalam format Microsoft Excel murni (.xlsx). Bebas kendala pemisah desimal koma/titik regional.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 12),
 
-          // Button 1: Export Transactions
+          // Button 1: Export Transactions (Excel .xlsx)
           _buildActionButton(
-            icon: Icons.table_chart_rounded,
-            color: Colors.green.shade700,
-            title: 'Ekspor Laporan Penjualan (CSV)',
+            icon: Icons.table_view_rounded,
+            color: Colors.green.shade800,
+            title: 'Ekspor Laporan Penjualan (Excel .xlsx)',
             subtitle: ExportService.instance.isDesktopPlatform
-                ? 'Simpan file CSV transaksi ke folder komputer pilihan Anda'
-                : 'Riwayat transaksi, omset, metode bayar, dan rincian item',
+                ? 'Multi-sheet: Sheet 1 (Ringkasan) & Sheet 2 (Rincian Item Terjual)'
+                : 'Unduh file Excel lengkap transaksi dan rincian item',
             onTap: () async {
               try {
-                final result = await ExportService.instance.exportTransactionsCsv();
+                final result = await ExportService.instance.exportTransactionsExcel();
                 if (mounted && result.success && result.filePath != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Laporan CSV berhasil disimpan!\n${result.filePath}'),
-                      backgroundColor: Colors.green.shade700,
+                      content: Text('✅ Laporan Excel (.xlsx) berhasil disimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.green.shade800,
                       duration: const Duration(seconds: 4),
                       action: ExportService.instance.isDesktopPlatform
                           ? SnackBarAction(
-                              label: 'Buka Folder',
+                              label: 'Buka File',
                               textColor: Colors.white,
                               onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
                             )
@@ -336,7 +628,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal ekspor: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text('Gagal ekspor Excel: $e'), backgroundColor: Colors.red),
                   );
                 }
               }
@@ -344,22 +636,62 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
           const SizedBox(height: 8),
 
-          // Button 2: Export Inventory
+          // Button 2: Export Inventory (Excel .xlsx)
           _buildActionButton(
             icon: Icons.inventory_2_rounded,
-            color: Colors.blue.shade700,
-            title: 'Ekspor Katalog Produk (CSV)',
+            color: Colors.teal.shade800,
+            title: 'Ekspor Katalog Produk (Excel .xlsx)',
             subtitle: ExportService.instance.isDesktopPlatform
-                ? 'Simpan file CSV katalog dan stok ke folder komputer'
-                : 'Daftar semua produk, stok, harga, dan kode barcode',
+                ? 'Simpan file Excel daftar inventori, stok, barcode, dan harga jual'
+                : 'Daftar semua produk dan status stok dalam format Excel',
             onTap: () async {
               try {
-                final result = await ExportService.instance.exportInventoryCsv();
+                final result = await ExportService.instance.exportInventoryExcel();
                 if (mounted && result.success && result.filePath != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Katalog CSV berhasil disimpan!\n${result.filePath}'),
-                      backgroundColor: Colors.blue.shade700,
+                      content: Text('✅ Katalog Excel (.xlsx) berhasil disimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.teal.shade800,
+                      duration: const Duration(seconds: 4),
+                      action: ExportService.instance.isDesktopPlatform
+                          ? SnackBarAction(
+                              label: 'Buka File',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
+                            )
+                          : null,
+                    ),
+                  );
+                } else if (mounted && !result.isCancelled && result.message != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal ekspor Excel: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // Button 3: Legacy CSV Export
+          _buildActionButton(
+            icon: Icons.file_present_rounded,
+            color: Colors.blueGrey.shade700,
+            title: 'Ekspor Format CSV (Teks Alternatif)',
+            subtitle: 'Format CSV klasik untuk integrasi software legacy atau script data',
+            onTap: () async {
+              try {
+                final result = await ExportService.instance.exportTransactionsCsv();
+                if (mounted && result.success && result.filePath != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Laporan CSV berhasil disimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.blueGrey.shade700,
                       duration: const Duration(seconds: 4),
                       action: ExportService.instance.isDesktopPlatform
                           ? SnackBarAction(
@@ -385,12 +717,25 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             },
           ),
           const SizedBox(height: 14),
-          const Divider(),
+          Divider(color: isDark ? AppColors.darkBorder : null),
           const SizedBox(height: 8),
 
-          const Text('Cadangan & Pemulihan (Backup & Restore)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text(
+            'Cadangan & Pemulihan (Backup & Restore)',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('Simpan seluruh database SQLite ke direktori lokal PC/HP atau pulihkan cadangan yang ada.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(
+            'Simpan seluruh database SQLite ke direktori lokal PC/HP atau pulihkan cadangan yang ada.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 12),
 
           // Button 3: Full Backup JSON (Save to Local Folder on Desktop)
@@ -442,6 +787,56 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             title: 'Pulihkan Database dari File (.json)',
             subtitle: 'Pilih file backup .json dari komputer/HP untuk memulihkan transaksi & produk',
             onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.teal, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pulihkan Database?',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    'Pemulihan database akan mengganti seluruh katalog produk, stok, dan riwayat transaksi saat ini dengan data yang ada di dalam file cadangan (.json).\n\nApakah Anda yakin ingin melanjutkan?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade700,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Pilih File & Pulihkan'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed != true || !mounted) return;
+
               final messenger = ScaffoldMessenger.of(context);
               final posProvider = Provider.of<PosProvider>(context, listen: false);
               final aiProvider = Provider.of<AiProvider>(context, listen: false);
@@ -449,6 +844,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               try {
                 final res = await ExportService.instance.pickAndRestoreBackup();
                 if (res != null && mounted) {
+                  posProvider.clearCart();
                   await posProvider.loadProducts();
                   await posProvider.loadSummary();
                   await aiProvider.loadAiData();
@@ -456,19 +852,32 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   final counts = res['counts'] as Map<String, int>? ?? {};
                   final prodCount = counts['products_restored'] ?? 0;
                   final txCount = counts['transactions_restored'] ?? 0;
+                  final fileName = res['name']?.toString() ?? 'file';
 
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text('✅ Berhasil memulihkan $prodCount produk dan $txCount transaksi!'),
+                      content: Text('✅ Berhasil memulihkan database dari $fileName! ($prodCount produk, $txCount transaksi)'),
                       backgroundColor: Colors.teal.shade700,
                       duration: const Duration(seconds: 4),
+                    ),
+                  );
+                } else if (mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('ℹ️ Pemulihan dibatalkan (tidak ada file dipilih).'),
+                      backgroundColor: Colors.blueGrey,
+                      duration: Duration(seconds: 2),
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Gagal memulihkan database: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('❌ Gagal memulihkan database: $e'),
+                      backgroundColor: Colors.red.shade700,
+                      duration: const Duration(seconds: 5),
+                    ),
                   );
                 }
               }
@@ -491,7 +900,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             const SizedBox(height: 8),
           ],
           const SizedBox(height: 16),
-          const Divider(),
+          Divider(color: isDark ? AppColors.darkBorder : null),
           const SizedBox(height: 8),
 
           // --- DANGER ZONE / DATA RESET ---
@@ -506,9 +915,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Gunakan setelah masa uji coba / training kasir atau tutup buku tahunan. Sistem otomatis mencadangkan data sebelum dihapus.',
-            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
           ),
           const SizedBox(height: 12),
 
@@ -536,6 +945,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   }
 
   Widget _buildLicenseTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_isLoadingLicense) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -610,19 +1020,58 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
 
           const SizedBox(height: 16),
-          const Text('Aktivasi Serial Key Lisensi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text(
+            'Aktivasi Serial Key Lisensi',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('Masukkan Serial Key aktivasi Lifetime atau SaaS yang Anda terima saat pembelian.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(
+            'Masukkan Serial Key aktivasi Lifetime atau SaaS yang Anda terima saat pembelian.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 10),
 
           TextField(
             controller: _licenseController,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
             decoration: InputDecoration(
               hintText: 'LRS-LIFE-XXXX-XXXX-XXXX',
-              hintStyle: const TextStyle(color: Colors.grey, fontSize: 12, letterSpacing: 1),
+              hintStyle: TextStyle(
+                color: isDark ? AppColors.darkTextMuted.withValues(alpha: 0.6) : Colors.grey,
+                fontSize: 12,
+                letterSpacing: 1,
+              ),
               prefixIcon: const Icon(Icons.vpn_key_rounded, color: AppColors.primary, size: 20),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              filled: true,
+              fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
           ),
@@ -669,11 +1118,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
 
           const SizedBox(height: 16),
-          const Divider(),
+          Divider(color: isDark ? AppColors.darkBorder : null),
           const SizedBox(height: 12),
-          const Text('Belum Memiliki Lisensi?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text(
+            'Belum Memiliki Lisensi?',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('Dapatkan lisensi resmi seumur hidup (Lifetime) atau langganan Cloud SaaS melalui portal Weboz Store.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(
+            'Dapatkan lisensi resmi seumur hidup (Lifetime) atau langganan Cloud SaaS melalui portal Weboz Store.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 10),
 
           // CTA Button 1: Weboz Official Store
@@ -681,11 +1143,11 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.teal.shade800,
-                side: BorderSide(color: Colors.teal.shade400, width: 1.5),
+                foregroundColor: isDark ? Colors.teal.shade300 : Colors.teal.shade800,
+                side: BorderSide(color: isDark ? Colors.teal.shade600 : Colors.teal.shade400, width: 1.5),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                backgroundColor: Colors.teal.shade50.withValues(alpha: 0.5),
+                backgroundColor: isDark ? Colors.teal.shade900.withValues(alpha: 0.3) : Colors.teal.shade50.withValues(alpha: 0.5),
               ),
               icon: const Icon(Icons.shopping_bag_outlined, size: 18),
               label: const Text('Beli Lisensi Resmi di Weboz.my.id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
@@ -700,11 +1162,11 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green.shade800,
-                side: BorderSide(color: Colors.green.shade400, width: 1.5),
+                foregroundColor: isDark ? Colors.green.shade300 : Colors.green.shade800,
+                side: BorderSide(color: isDark ? Colors.green.shade600 : Colors.green.shade400, width: 1.5),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                backgroundColor: Colors.green.shade50.withValues(alpha: 0.5),
+                backgroundColor: isDark ? Colors.green.shade900.withValues(alpha: 0.3) : Colors.green.shade50.withValues(alpha: 0.5),
               ),
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
               label: const Text('Chat WhatsApp Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
@@ -723,22 +1185,23 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: color.withValues(alpha: isDark ? 0.2 : 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 22),
@@ -748,13 +1211,30 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMain)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -762,6 +1242,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   }
 
   Future<void> _confirmResetTransactions(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final messenger = ScaffoldMessenger.of(context);
     final posProvider = Provider.of<PosProvider>(context, listen: false);
     final aiProvider = Provider.of<AiProvider>(context, listen: false);
@@ -769,15 +1250,20 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     final shouldReset = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 24),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Hapus Riwayat Transaksi?',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
               ),
             ),
           ],
@@ -786,42 +1272,46 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Tindakan ini akan menghapus seluruh data transaksi, nota kasir, dan laporan omzet kembali ke Rp 0.',
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : null),
             ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: isDark ? Colors.green.shade900.withValues(alpha: 0.3) : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade200),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_outline, color: Colors.green.shade800, size: 18),
+                  Icon(Icons.check_circle_outline, color: isDark ? Colors.green.shade300 : Colors.green.shade800, size: 18),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Katalog produk, harga, dan stok Anda TETAP AMAN dan tidak akan terhapus.',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.green.shade100 : Colors.black87,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '💡 Sistem akan otomatis membuat cadangan (.json) sebelum pembersihan dimulai.',
-              style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
+            child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -871,6 +1361,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   }
 
   Future<void> _confirmFactoryReset(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final messenger = ScaffoldMessenger.of(context);
     final posProvider = Provider.of<PosProvider>(context, listen: false);
     final aiProvider = Provider.of<AiProvider>(context, listen: false);
@@ -880,6 +1371,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
@@ -902,24 +1394,44 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Hak lisensi perangkat Anda tetap tersimpan dan aktif. Salinan cadangan .json akan otomatis disimpan sebelum reset.',
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Untuk konfirmasi, ketik kata "HAPUS" di bawah ini:',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: confirmController,
                 autofocus: true,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1),
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+                decoration: InputDecoration(
                   hintText: 'Ketik HAPUS',
+                  hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
                 onChanged: (val) => setDialogState(() {}),
               ),
@@ -928,7 +1440,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal'),
+              child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -978,11 +1490,13 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
     final dialogWidth = (mediaQuery.size.width * 0.92).clamp(280.0, 480.0);
     final dialogHeight = (mediaQuery.size.height * 0.60).clamp(320.0, 480.0);
 
     return AlertDialog(
+      backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -999,12 +1513,25 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 child: const Icon(Icons.settings_rounded, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Pengaturan LarisAI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('Mode database, backup data & lisensi', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text(
+                      'Pengaturan LarisAI',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                      ),
+                    ),
+                    Text(
+                      'Profil UMKM, mode server & backup data',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1014,11 +1541,12 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           TabBar(
             controller: _tabController,
             labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textMuted,
+            unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
             indicatorColor: AppColors.primary,
             indicatorWeight: 3,
             labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             tabs: const [
+              Tab(text: 'Profil UMKM'),
               Tab(text: 'Mode Server'),
               Tab(text: 'Laporan & Data'),
               Tab(text: 'Lisensi'),
@@ -1032,6 +1560,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         child: TabBarView(
           controller: _tabController,
           children: [
+            _buildStoreProfileTab(),
             _buildNetworkTab(),
             _buildExportTab(),
             _buildLicenseTab(),
@@ -1041,12 +1570,33 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Tutup'),
+          child: Text(
+            'Tutup',
+            style: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+          ),
         ),
         ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
           icon: const Icon(Icons.check_rounded, size: 16),
           label: const Text('Simpan Pengaturan'),
           onPressed: () async {
+            // Save Store Profile
+            await StoreProfileService.instance.saveProfile(
+              StoreProfile(
+                storeName: _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim(),
+                ownerName: _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim(),
+                storeAddress: _storeAddressController.text.trim(),
+                storePhone: _storePhoneController.text.trim(),
+                receiptFooter: _receiptFooterController.text.trim().isEmpty
+                    ? 'Terima Kasih Atas Kunjungan Anda!'
+                    : _receiptFooterController.text.trim(),
+              ),
+            );
+
+            // Save Connection Mode & URLs
             await ApiConstants.setMode(_selectedMode);
             if (_showAdvanced) {
               await ApiConstants.setUrls(
@@ -1063,10 +1613,10 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Mode ${ApiConstants.modeLabel} tersimpan!'),
+              const SnackBar(
+                content: Text('✅ Pengaturan & Profil UMKM berhasil disimpan!'),
                 backgroundColor: AppColors.primary,
-                duration: const Duration(seconds: 2),
+                duration: Duration(seconds: 2),
               ),
             );
           },

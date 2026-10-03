@@ -5,11 +5,13 @@ import 'core/theme/app_theme.dart';
 import 'providers/pos_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/store_profile_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConstants.loadSavedUrls();
+  await StoreProfileService.instance.init();
 
   runApp(
     MultiProvider(

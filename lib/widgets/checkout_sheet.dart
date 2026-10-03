@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
+import '../core/constants/api_constants.dart';
 import '../providers/pos_provider.dart';
 import 'receipt_dialog.dart';
 
@@ -17,7 +18,6 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
   int _cashTendered = 0;
   final TextEditingController _cashController = TextEditingController();
   final TextEditingController _customerController = TextEditingController();
-  final TextEditingController _refController = TextEditingController();
   String _selectedBank = 'BCA';
   String _selectedEwallet = 'GoPay';
   bool _isProcessing = false;
@@ -34,7 +34,6 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
   void dispose() {
     _cashController.dispose();
     _customerController.dispose();
-    _refController.dispose();
     super.dispose();
   }
 
@@ -69,13 +68,15 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
     setState(() => _isProcessing = true);
 
     String customerNote = _customerController.text.trim();
-    if (_refController.text.trim().isNotEmpty) {
-      final refText = _selectedPayment == 'TRANSFER'
-          ? 'Transfer $_selectedBank: ${_refController.text.trim()}'
-          : (_selectedPayment == 'EWALLET'
-              ? '$_selectedEwallet: ${_refController.text.trim()}'
-              : 'Ref: ${_refController.text.trim()}');
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($refText)' : refText;
+    if (_selectedPayment == 'TRANSFER') {
+      final bankText = 'Transfer $_selectedBank';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($bankText)' : bankText;
+    } else if (_selectedPayment == 'EWALLET') {
+      final ewText = 'E-Wallet $_selectedEwallet';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($ewText)' : ewText;
+    } else if (_selectedPayment == 'DEBIT') {
+      const debitText = 'Kartu Debit/EDC';
+      customerNote = customerNote.isNotEmpty ? '$customerNote ($debitText)' : debitText;
     }
 
     final transaction = await posProvider.processCheckout(
@@ -152,10 +153,14 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Mode Offline / Lifetime (SQLite Lokal)',
+                      ApiConstants.isOfflineMode
+                          ? '📦 Mode Lifetime (100% Offline SQLite)'
+                          : '☁️ Mode Cloud SaaS (Online)',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDark ? AppColors.primaryLight : AppColors.primaryDark,
+                        color: ApiConstants.isOfflineMode
+                            ? (isDark ? AppColors.primaryLight : AppColors.primaryDark)
+                            : (isDark ? AppColors.accentLight : AppColors.accentDark),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -187,7 +192,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -327,7 +332,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                       : (isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2)),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: _cashTendered >= total ? AppColors.success.withOpacity(0.5) : AppColors.danger.withOpacity(0.5),
+                    color: _cashTendered >= total ? AppColors.success.withValues(alpha: 0.5) : AppColors.danger.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -353,29 +358,39 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 ),
               ),
             ] else if (_selectedPayment == 'QRIS') ...[
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkBackground : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.qr_code_2_rounded, size: 80, color: AppColors.accent),
-                      const SizedBox(height: 6),
-                      const Text('Scan QRIS Dinamis Toko', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text(
-                        CurrencyFormatter.format(total),
-                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 18),
-                      ),
-                    ],
-                  ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.qr_code_2_rounded, size: 70, color: AppColors.accent),
+                    const SizedBox(height: 4),
+                    const Text('Scan QRIS Toko', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 2),
+                    Text(
+                      CurrencyFormatter.format(total),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 18),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      ApiConstants.isOfflineMode
+                          ? '🛡️ Mode Offline: 0% Biaya MDR. Minta pelanggan scan QRIS toko & cek bukti bayar di HP pelanggan.'
+                          : '⚡ Mode Cloud: Webhook mendeteksi pembayaran secara otomatis.',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
             ] else if (_selectedPayment == 'TRANSFER') ...[
               // Bank Selection Chips
+              const Text('Pilih Bank Tujuan Toko:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              const SizedBox(height: 6),
               Row(
                 children: ['BCA', 'Mandiri', 'BRI', 'BNI'].map((bank) {
                   final isBankSelected = _selectedBank == bank;
@@ -393,16 +408,38 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _refController,
-                decoration: const InputDecoration(
-                  hintText: 'No. Referensi / Nama Pengirim (opsional)',
-                  prefixIcon: Icon(Icons.receipt_long_outlined, size: 18),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance_outlined, color: AppColors.primary, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Transfer Bank $_selectedBank', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Pelanggan transfer ke rekening toko. Tidak perlu input nomor kartu atau referensi.',
+                            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ] else if (_selectedPayment == 'EWALLET') ...[
               // E-Wallet Choice
+              const Text('Pilih E-Wallet Pelanggan / Toko:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              const SizedBox(height: 6),
               Row(
                 children: ['GoPay', 'OVO', 'DANA', 'ShopeePay'].map((ew) {
                   final isEwSelected = _selectedEwallet == ew;
@@ -420,26 +457,68 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _refController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  hintText: 'Nomor HP Pelanggan (opsional)',
-                  prefixIcon: Icon(Icons.phone_android_outlined, size: 18),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.phone_android_rounded, color: AppColors.primary, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Pembayaran via $_selectedEwallet', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Pelanggan scan QR / transfer ke akun e-wallet toko. Tidak perlu input nomor HP pelanggan.',
+                            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ] else ...[
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: Text('💳 Gesek atau Tap kartu debit/kredit pada mesin EDC toko.'),
+              // Debit / EDC Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Mesin EDC Toko', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          SizedBox(height: 2),
+                          Text(
+                            'Gesek, masukkan chip, atau tap kartu pada mesin EDC kasir. Tidak perlu input nomor kartu.',
+                            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
 
             const SizedBox(height: 12),
-            // Opsional: Customer Name / Phone
+            // Opsional: Customer Name / Note
             TextField(
               controller: _customerController,
               decoration: const InputDecoration(
@@ -531,7 +610,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
   Widget _buildQuickAddButton(String label, int addAmount) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.accentLight.withOpacity(0.5),
+        backgroundColor: AppColors.accentLight.withValues(alpha: 0.5),
         foregroundColor: AppColors.accent,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

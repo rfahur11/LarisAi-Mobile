@@ -5,6 +5,8 @@ import '../core/utils/currency_formatter.dart';
 import '../models/transaction_model.dart';
 import '../services/printer_service.dart';
 
+import '../services/store_profile_service.dart';
+
 class ReceiptDialog extends StatelessWidget {
   final Transaction transaction;
   final int cashTendered;
@@ -17,6 +19,7 @@ class ReceiptDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final storeProfile = StoreProfileService.instance.profile;
     final change = (cashTendered > transaction.totalAmount) 
         ? cashTendered - transaction.totalAmount 
         : 0;
@@ -46,10 +49,16 @@ class ReceiptDialog extends StatelessWidget {
                 'Transaksi Berhasil!',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textMain),
               ),
-              const Text(
-                'LarisAI Smart POS UMKM',
-                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+              Text(
+                storeProfile.storeName,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
               ),
+              if (storeProfile.storeAddress.isNotEmpty)
+                Text(
+                  storeProfile.storeAddress,
+                  style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                  textAlign: TextAlign.center,
+                ),
               const SizedBox(height: 16),
               const Divider(color: AppColors.border, thickness: 1),
               
