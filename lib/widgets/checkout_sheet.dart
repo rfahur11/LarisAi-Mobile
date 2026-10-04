@@ -21,6 +21,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
   String _selectedBank = 'BCA';
   String _selectedEwallet = 'GoPay';
   bool _isProcessing = false;
+  bool _isOrderDetailsExpanded = true;
 
   @override
   void initState() {
@@ -207,6 +208,123 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                     CurrencyFormatter.format(total),
                     style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
                   ),
+                ],
+              ),
+            ),
+            // Detail Pesanan (Item, Qty & Subtotal)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() => _isOrderDetailsExpanded = !_isOrderDetailsExpanded),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.receipt_long_rounded,
+                                size: 18,
+                                color: isDark ? AppColors.primaryHover : AppColors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Rincian Belanja (${posProvider.totalItems} item)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                _isOrderDetailsExpanded ? 'Sembunyikan' : 'Lihat Item',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.primaryHover : AppColors.primary,
+                                ),
+                              ),
+                              Icon(
+                                _isOrderDetailsExpanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: isDark ? AppColors.primaryHover : AppColors.primary,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_isOrderDetailsExpanded) ...[
+                    Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 160),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        itemCount: posProvider.cart.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 12,
+                          color: (isDark ? AppColors.darkBorder : AppColors.border).withValues(alpha: 0.5),
+                        ),
+                        itemBuilder: (ctx, idx) {
+                          final item = posProvider.cart[idx];
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.product.name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${item.quantity} x ${CurrencyFormatter.format(item.product.price)}',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                CurrencyFormatter.format(item.subtotal),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

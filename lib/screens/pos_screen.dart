@@ -1241,26 +1241,49 @@ class _PosScreenState extends State<PosScreen> {
   // MOBILE LAYOUT (SMARTPHONE)
   // ==========================================
   Widget _buildMobileLayout(BuildContext context, PosProvider posProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
         title: Row(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.asset(
                 'assets/images/larisai_logo.png',
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('LarisAI Kasir', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Mode POS Kasir Cepat', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-              ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LarisAI Kasir',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Mode POS Kasir Cepat',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1277,14 +1300,14 @@ class _PosScreenState extends State<PosScreen> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            child: IconButton.filled(
+              style: IconButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Colors.white),
+              tooltip: 'Scan Barcode Kamera',
               onPressed: () => _openScanner(context),
-              icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('Scan', style: TextStyle(fontSize: 13)),
             ),
           ),
         ],
@@ -1298,9 +1321,17 @@ class _PosScreenState extends State<PosScreen> {
               controller: _searchController,
               focusNode: _searchFocusNode,
               onChanged: (val) => posProvider.loadProducts(search: val),
+              style: TextStyle(
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                fontSize: 13.5,
+              ),
               decoration: InputDecoration(
                 hintText: 'Cari nama produk atau barcode...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                hintStyle: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(Icons.search_rounded, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18),
@@ -1322,7 +1353,7 @@ class _PosScreenState extends State<PosScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
               itemCount: posProvider.categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (ctx, idx) {
                 final cat = posProvider.categories[idx];
                 final isSelected = posProvider.selectedCategory == cat;
@@ -1330,15 +1361,17 @@ class _PosScreenState extends State<PosScreen> {
                   label: Text(cat),
                   selected: isSelected,
                   onSelected: (_) => posProvider.setCategory(cat),
-                  selectedColor: AppColors.primaryLight,
-                  backgroundColor: Colors.white,
+                  selectedColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
+                  backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
                   labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? AppColors.primaryDark : AppColors.textMuted,
+                    color: isSelected
+                        ? (isDark ? AppColors.primaryHover : AppColors.primaryDark)
+                        : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                   ),
                   side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
+                    color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border),
                   ),
                 );
               },
@@ -1356,11 +1389,14 @@ class _PosScreenState extends State<PosScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.textMuted),
+                            Icon(Icons.inventory_2_outlined, size: 48, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                             const SizedBox(height: 12),
-                            const Text(
+                            Text(
                               'Produk tidak ditemukan',
-                              style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
@@ -1369,9 +1405,9 @@ class _PosScreenState extends State<PosScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.85,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.77,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
                         ),
                         itemCount: posProvider.products.length,
                         itemBuilder: (ctx, idx) {
@@ -1388,15 +1424,18 @@ class _PosScreenState extends State<PosScreen> {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppColors.darkSurface : Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
                     blurRadius: 16,
                     offset: const Offset(0, -4),
                   ),
                 ],
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border(
+                  top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
+                ),
               ),
               child: SafeArea(
                 child: Row(
@@ -1411,13 +1450,13 @@ class _PosScreenState extends State<PosScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryLight,
+                                  color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   '${posProvider.totalItems} Produk',
-                                  style: const TextStyle(
-                                    color: AppColors.primaryDark,
+                                  style: TextStyle(
+                                    color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1436,10 +1475,10 @@ class _PosScreenState extends State<PosScreen> {
                           const SizedBox(height: 4),
                           Text(
                             CurrencyFormatter.format(posProvider.totalAmount),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              color: AppColors.primaryDark,
+                              color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -1448,14 +1487,16 @@ class _PosScreenState extends State<PosScreen> {
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => _openMobileCheckout(context),
                       child: const Row(
                         children: [
                           Text('Bayar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                           SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 18),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
                         ],
                       ),
                     ),
@@ -1623,29 +1664,36 @@ class _PosScreenState extends State<PosScreen> {
 
                 // Bottom Section: Price & Action Stepper / Add Button
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Price Tag
-                    Text(
-                      CurrencyFormatter.format(product.price),
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+                    // Price Tag (Flexibly sized so it never pushes button out)
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          CurrencyFormatter.format(product.price),
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+                          ),
+                          maxLines: 1,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 4),
 
                     // Cart Quantity Stepper or Add Button
                     if (isOutOfStock)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Kosong',
+                          'Habis',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -1662,23 +1710,25 @@ class _PosScreenState extends State<PosScreen> {
                             color: AppColors.primary,
                           ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             InkWell(
                               onTap: () => posProvider.decreaseQuantity(product),
+                              borderRadius: BorderRadius.circular(4),
                               child: const Padding(
                                 padding: EdgeInsets.all(2),
-                                child: Icon(Icons.remove, size: 16, color: AppColors.primary),
+                                child: Icon(Icons.remove_rounded, size: 15, color: AppColors.primary),
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                            Container(
+                              constraints: const BoxConstraints(minWidth: 16),
+                              alignment: Alignment.center,
                               child: Text(
                                 '$inCartQty',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w900,
                                   color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
                                 ),
@@ -1686,9 +1736,10 @@ class _PosScreenState extends State<PosScreen> {
                             ),
                             InkWell(
                               onTap: () => posProvider.addToCart(product),
+                              borderRadius: BorderRadius.circular(4),
                               child: const Padding(
                                 padding: EdgeInsets.all(2),
-                                child: Icon(Icons.add, size: 16, color: AppColors.primary),
+                                child: Icon(Icons.add_rounded, size: 15, color: AppColors.primary),
                               ),
                             ),
                           ],
@@ -1696,7 +1747,7 @@ class _PosScreenState extends State<PosScreen> {
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(8),
@@ -1712,11 +1763,11 @@ class _PosScreenState extends State<PosScreen> {
                               size: 13,
                               color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
-                              '+ Tambah',
+                              'Tambah',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
                                 color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
                               ),

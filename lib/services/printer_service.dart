@@ -157,7 +157,7 @@ class PrinterService {
                 ],
               ),
 
-              if (transaction.paymentType.toUpperCase() == 'CASH' && cashTendered > 0) ...[
+              if ((transaction.paymentType.toUpperCase() == 'TUNAI' || transaction.paymentType.toUpperCase() == 'CASH') && cashTendered > 0) ...[
                 pw.SizedBox(height: 2),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
