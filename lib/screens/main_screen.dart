@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
+import '../providers/pos_provider.dart';
+import '../providers/ai_provider.dart';
 import '../widgets/desktop_header.dart';
 import 'pos_screen.dart';
 import 'inventory_screen.dart';
@@ -23,6 +26,21 @@ class _MainScreenState extends State<MainScreen> {
     AnalyticsScreen(),
   ];
 
+  void _onTabSelected(int idx) {
+    setState(() => _currentIndex = idx);
+    final posProvider = Provider.of<PosProvider>(context, listen: false);
+    final aiProvider = Provider.of<AiProvider>(context, listen: false);
+
+    if (idx == 0 || idx == 1) {
+      posProvider.loadProducts();
+      posProvider.loadSummary();
+    } else if (idx == 2) {
+      aiProvider.loadAiData();
+    } else if (idx == 3) {
+      posProvider.loadSummary();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
@@ -37,7 +55,7 @@ class _MainScreenState extends State<MainScreen> {
             // Top Modern Navbar & Bento Stats Header
             DesktopHeader(
               activeIndex: _currentIndex,
-              onTabSelected: (idx) => setState(() => _currentIndex = idx),
+              onTabSelected: _onTabSelected,
             ),
 
             // Active Screen Content
@@ -70,7 +88,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         child: NavigationBar(
           selectedIndex: _currentIndex,
-          onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+          onDestinationSelected: _onTabSelected,
           backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
           indicatorColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
           destinations: const [
