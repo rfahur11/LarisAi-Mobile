@@ -36,6 +36,9 @@ class PrinterService {
         ? cashTendered - transaction.totalAmount
         : 0;
 
+    final dividerLine = is80mm ? '----------------------------------------' : '----------------------------';
+    final doubleDividerLine = is80mm ? '========================================' : '============================';
+
     doc.addPage(
       pw.Page(
         pageFormat: pageFormat,
@@ -63,7 +66,7 @@ class PrinterService {
               ),
               pw.SizedBox(height: 6),
               pw.Text(
-                '----------------------------------------',
+                dividerLine,
                 style: const pw.TextStyle(fontSize: 8),
               ),
 
@@ -88,7 +91,7 @@ class PrinterService {
                   child: pw.Text('Pelanggan: ${transaction.customerId}', style: const pw.TextStyle(fontSize: 8)),
                 ),
               pw.Text(
-                '----------------------------------------',
+                dividerLine,
                 style: const pw.TextStyle(fontSize: 8),
               ),
               pw.SizedBox(height: 4),
@@ -141,7 +144,7 @@ class PrinterService {
 
               pw.SizedBox(height: 4),
               pw.Text(
-                '========================================',
+                doubleDividerLine,
                 style: const pw.TextStyle(fontSize: 8),
               ),
 
@@ -177,7 +180,7 @@ class PrinterService {
 
               pw.SizedBox(height: 8),
               pw.Text(
-                '----------------------------------------',
+                dividerLine,
                 style: const pw.TextStyle(fontSize: 8),
               ),
 

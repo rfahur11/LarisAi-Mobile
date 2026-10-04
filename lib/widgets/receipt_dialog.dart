@@ -320,77 +320,91 @@ class ReceiptDialog extends StatelessWidget {
                 ),
               ),
 
-              // Action Buttons
+              // Action Buttons: Professional 2-Tier Layout
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          side: BorderSide(color: isDark ? AppColors.primaryHover : AppColors.primary),
-                        ),
-                        onPressed: () async {
-                          await PrinterService.instance.printReceipt(
-                            transaction: transaction,
-                            cashTendered: cashTendered,
-                          );
-                        },
-                        icon: Icon(
-                          Icons.print_rounded,
-                          size: 18,
-                          color: isDark ? AppColors.primaryHover : AppColors.primary,
-                        ),
-                        label: Text(
-                          'Cetak',
-                          style: TextStyle(
-                            color: isDark ? AppColors.primaryHover : AppColors.primary,
-                            fontWeight: FontWeight.bold,
+                    // Row 1: Dual Utility Actions (Cetak Struk & Bagikan PDF)
+                    Row(
+                      children: [
+                        // Cetak Struk (Thermal Printer)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight.withValues(alpha: 0.5),
+                              foregroundColor: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              side: BorderSide(
+                                color: isDark ? AppColors.primary : AppColors.primary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await PrinterService.instance.printReceipt(
+                                transaction: transaction,
+                                cashTendered: cashTendered,
+                              );
+                            },
+                            icon: const Icon(Icons.print_rounded, size: 18),
+                            label: const Text(
+                              'Cetak Struk',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          side: BorderSide(color: isDark ? const Color(0xFFA5B4FC) : AppColors.accent),
-                        ),
-                        onPressed: () async {
-                          await PrinterService.instance.shareReceiptPdf(
-                            transaction: transaction,
-                            cashTendered: cashTendered,
-                          );
-                        },
-                        icon: Icon(
-                          Icons.share_rounded,
-                          size: 18,
-                          color: isDark ? const Color(0xFFA5B4FC) : AppColors.accent,
-                        ),
-                        label: Text(
-                          'Share PDF',
-                          style: TextStyle(
-                            color: isDark ? const Color(0xFFA5B4FC) : AppColors.accent,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(width: 10),
+                        // Bagikan Struk PDF
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: isDark ? AppColors.darkCard : Colors.grey.shade100,
+                              foregroundColor: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              side: BorderSide(
+                                color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                              ),
+                            ),
+                            onPressed: () async {
+                              await PrinterService.instance.shareReceiptPdf(
+                                transaction: transaction,
+                                cashTendered: cashTendered,
+                              );
+                            },
+                            icon: Icon(
+                              Icons.share_outlined,
+                              size: 18,
+                              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                            ),
+                            label: const Text(
+                              'Bagikan PDF',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
+                    const SizedBox(height: 10),
+
+                    // Row 2: Full-width Primary Confirmation Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
                         ),
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Selesai', style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                        label: const Text(
+                          'Selesai & Transaksi Baru',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
                     ),
                   ],
