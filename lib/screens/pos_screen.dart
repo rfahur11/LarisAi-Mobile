@@ -11,6 +11,7 @@ import '../widgets/checkout_sheet.dart';
 import '../widgets/receipt_dialog.dart';
 import '../widgets/settings_dialog.dart';
 import '../widgets/customer_selector_widget.dart';
+import '../services/store_profile_service.dart';
 import 'scanner_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -1250,29 +1251,70 @@ class _PosScreenState extends State<PosScreen> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'LarisAI Kasir',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    'Mode POS Kasir Cepat',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              child: AnimatedBuilder(
+                animation: StoreProfileService.instance,
+                builder: (context, _) {
+                  final profile = StoreProfileService.instance.profile;
+                  final storeName = profile.storeName.isNotEmpty ? profile.storeName : 'LarisAI Kasir';
+                  final cashier = profile.ownerName.isNotEmpty ? profile.ownerName : 'Kasir 01';
+                  final isOffline = ApiConstants.currentMode == ConnectionMode.offline;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        storeName,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '👤 $cashier',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: isOffline
+                                  ? (isDark ? const Color(0xFF042F2E) : Colors.teal.shade50)
+                                  : (isDark ? const Color(0xFF1E1B4B) : Colors.indigo.shade50),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isOffline ? Colors.teal.shade300 : Colors.indigo.shade300,
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              isOffline ? 'OFFLINE' : 'CLOUD',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                color: isOffline
+                                    ? (isDark ? Colors.teal.shade300 : Colors.teal.shade800)
+                                    : (isDark ? Colors.indigo.shade300 : Colors.indigo.shade800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],

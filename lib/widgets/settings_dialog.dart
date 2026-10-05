@@ -208,12 +208,16 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 children: [
                   Row(
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected ? accentColor : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected ? accentColor : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1218,6 +1222,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       fontSize: 12,
                       color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -1226,6 +1232,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       fontSize: 10,
                       color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1492,14 +1500,17 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
-    final dialogWidth = (mediaQuery.size.width * 0.92).clamp(280.0, 480.0);
-    final dialogHeight = (mediaQuery.size.height * 0.60).clamp(320.0, 480.0);
+    final isMobile = mediaQuery.size.width < 600;
+    final dialogWidth = (mediaQuery.size.width * (isMobile ? 0.96 : 0.85)).clamp(320.0, 560.0);
+    final dialogHeight = (mediaQuery.size.height * (isMobile ? 0.74 : 0.65)).clamp(400.0, 620.0);
 
     return AlertDialog(
       backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+      titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
       title: Column(
         children: [
           Row(
@@ -1520,10 +1531,12 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     Text(
                       'Pengaturan LarisAI',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.bold,
                         color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'Profil UMKM, mode server & backup data',
@@ -1531,26 +1544,99 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                         fontSize: 11,
                         color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(Icons.close_rounded, size: 20, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          TabBar(
-            controller: _tabController,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            indicatorColor: AppColors.primary,
-            indicatorWeight: 3,
-            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            tabs: const [
-              Tab(text: 'Profil UMKM'),
-              Tab(text: 'Mode Server'),
-              Tab(text: 'Laporan & Data'),
-              Tab(text: 'Lisensi'),
-            ],
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
+            ),
+            padding: const EdgeInsets.all(3),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              padding: EdgeInsets.zero,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+              labelColor: Colors.white,
+              unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+              indicator: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(9),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              tabs: const [
+                Tab(
+                  height: 34,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.storefront_rounded, size: 15),
+                      SizedBox(width: 6),
+                      Text('Profil UMKM'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  height: 34,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.dns_rounded, size: 15),
+                      SizedBox(width: 6),
+                      Text('Mode Server'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  height: 34,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_sync_rounded, size: 15),
+                      SizedBox(width: 6),
+                      Text('Data & Backup'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  height: 34,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_user_rounded, size: 15),
+                      SizedBox(width: 6),
+                      Text('Lisensi'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1568,58 +1654,81 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Tutup',
-            style: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
-          ),
-        ),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-          ),
-          icon: const Icon(Icons.check_rounded, size: 16),
-          label: const Text('Simpan Pengaturan'),
-          onPressed: () async {
-            // Save Store Profile
-            await StoreProfileService.instance.saveProfile(
-              StoreProfile(
-                storeName: _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim(),
-                ownerName: _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim(),
-                storeAddress: _storeAddressController.text.trim(),
-                storePhone: _storePhoneController.text.trim(),
-                receiptFooter: _receiptFooterController.text.trim().isEmpty
-                    ? 'Terima Kasih Atas Kunjungan Anda!'
-                    : _receiptFooterController.text.trim(),
+        Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Tutup',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                  ),
+                ),
               ),
-            );
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text(
+                  'Simpan Pengaturan',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () async {
+                  // Save Store Profile
+                  await StoreProfileService.instance.saveProfile(
+                    StoreProfile(
+                      storeName: _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim(),
+                      ownerName: _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim(),
+                      storeAddress: _storeAddressController.text.trim(),
+                      storePhone: _storePhoneController.text.trim(),
+                      receiptFooter: _receiptFooterController.text.trim().isEmpty
+                          ? 'Terima Kasih Atas Kunjungan Anda!'
+                          : _receiptFooterController.text.trim(),
+                    ),
+                  );
 
-            // Save Connection Mode & URLs
-            await ApiConstants.setMode(_selectedMode);
-            if (_showAdvanced) {
-              await ApiConstants.setUrls(
-                posUrl: _posController.text.trim(),
-                aiUrl: _aiController.text.trim(),
-              );
-            }
+                  // Save Connection Mode & URLs
+                  await ApiConstants.setMode(_selectedMode);
+                  if (_showAdvanced) {
+                    await ApiConstants.setUrls(
+                      posUrl: _posController.text.trim(),
+                      aiUrl: _aiController.text.trim(),
+                    );
+                  }
 
-            if (!context.mounted) return;
+                  if (!context.mounted) return;
 
-            // Refresh data in providers
-            Provider.of<PosProvider>(context, listen: false).loadProducts();
-            Provider.of<AiProvider>(context, listen: false).loadAiData();
+                  // Refresh data in providers
+                  Provider.of<PosProvider>(context, listen: false).loadProducts();
+                  Provider.of<AiProvider>(context, listen: false).loadAiData();
 
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Pengaturan & Profil UMKM berhasil disimpan!'),
-                backgroundColor: AppColors.primary,
-                duration: Duration(seconds: 2),
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Pengaturan & Profil UMKM berhasil disimpan!'),
+                      backgroundColor: AppColors.primary,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ],
     );
