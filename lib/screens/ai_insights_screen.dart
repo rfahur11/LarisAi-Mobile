@@ -83,11 +83,11 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
           return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             backgroundColor: isDark ? AppColors.darkCard : Colors.white,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +101,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                             color: const Color(0xFF25D366).withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 20),
+                          child: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 18),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -111,10 +111,12 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                               Text(
                                 'Studio Promosi WhatsApp',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 'Target: Pelanggan $clusterLabel',
@@ -122,12 +124,15 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                                   fontSize: 11,
                                   color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
                             color: ApiConstants.isOfflineMode
                                 ? const Color(0xFF042F2E)
@@ -142,7 +147,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                           child: Text(
                             ApiConstants.isOfflineMode ? '⚡ 1-Tap WA' : '☁️ Cloud Blast',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                               color: ApiConstants.isOfflineMode
                                   ? const Color(0xFF34D399)
@@ -269,56 +274,81 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                       ),
                     const SizedBox(height: 18),
 
-                    // Actions Bar
-                    Row(
+                    // Actions Bar (Mobile-first responsive layout to prevent horizontal overflow)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Batal'),
-                        ),
-                        const Spacer(),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 42,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              final text = messageController.text.trim();
+                              if (ApiConstants.isOfflineMode) {
+                                await _launchWhatsApp(phone: '', message: text);
+                              } else {
+                                final aiProvider = Provider.of<AiProvider>(context, listen: false);
+                                await aiProvider.sendPromoBlast(
+                                  clusterLabel: clusterLabel,
+                                  message: text,
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.send_rounded, size: 15),
+                            label: const Text(
+                              'Buka WhatsApp',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
                           ),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: messageController.text.trim()));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('📋 Teks promosi berhasil disalin ke clipboard!'),
-                                backgroundColor: AppColors.primary,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
+                                ),
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: messageController.text.trim()));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('📋 Teks promosi berhasil disalin ke clipboard!'),
+                                      backgroundColor: AppColors.primary,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                label: const Text('Salin Teks', style: TextStyle(fontSize: 11.5)),
                               ),
-                            );
-                          },
-                          icon: const Icon(Icons.copy_rounded, size: 14),
-                          label: const Text('Salin Teks', style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF25D366),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 0,
-                          ),
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            final text = messageController.text.trim();
-                            if (ApiConstants.isOfflineMode) {
-                              await _launchWhatsApp(phone: '', message: text);
-                            } else {
-                              final aiProvider = Provider.of<AiProvider>(context, listen: false);
-                              await aiProvider.sendPromoBlast(
-                                clusterLabel: clusterLabel,
-                                message: text,
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.send_rounded, size: 14),
-                          label: const Text('Buka WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: () => Navigator.pop(ctx),
+                                child: Text(
+                                  'Batal',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -415,7 +445,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: isCritical ? AppColors.danger.withOpacity(0.5) : AppColors.border),
+            side: BorderSide(color: isCritical ? AppColors.danger.withValues(alpha: 0.5) : AppColors.border),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -425,7 +455,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: isCritical ? AppColors.danger.withOpacity(0.12) : AppColors.warning.withOpacity(0.12),
+                    color: isCritical ? AppColors.danger.withValues(alpha: 0.12) : AppColors.warning.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -488,68 +518,88 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
             children: [
               const Icon(Icons.campaign_rounded, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                'Pusat Kampanye Promosi Cerdas',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              Expanded(
+                child: Text(
+                  'Pusat Kampanye Promosi Cerdas',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // 2 Executive Campaign Action Cards
-          Row(
-            children: [
-              // Card 1: VIP Loyalty Booster
-              Expanded(
-                child: _buildCampaignActionCard(
-                  title: 'Loyal VIP',
-                  countText: '${aiProvider.loyalCustomers.length} Pelanggan',
-                  subtitle: 'Apresiasi pelanggan setia dengan voucher reward',
-                  icon: Icons.workspace_premium_rounded,
-                  accentColor: const Color(0xFFD97706), // Warm Amber
-                  bgColor: isDark ? const Color(0xFF1C1914) : const Color(0xFFFFFBEB),
-                  borderColor: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
-                  buttonLabel: 'Kirim Promo VIP',
-                  onTap: () => _showPromoBlastDialog(context, 'Loyal'),
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Card 2: Churn Win-Back Retention
-              Expanded(
-                child: _buildCampaignActionCard(
-                  title: 'Beresiko Churn',
-                  countText: '${aiProvider.churnRiskCustomers.length} Pelanggan',
-                  subtitle: 'Ajak kembali pelanggan yang lama tidak berkunjung',
-                  icon: Icons.replay_circle_filled_rounded,
-                  accentColor: const Color(0xFFE11D48), // Rose / Terracotta
-                  bgColor: isDark ? const Color(0xFF1F1418) : const Color(0xFFFFF1F2),
-                  borderColor: isDark ? const Color(0xFF881337) : const Color(0xFFFECDD3),
-                  buttonLabel: 'Ajak Kembali',
-                  onTap: () => _showPromoBlastDialog(context, 'Beresiko Churn'),
-                  isDark: isDark,
-                ),
-              ),
-            ],
+          // 2 Executive Campaign Action Cards (Responsive layout)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 360;
+              final card1 = _buildCampaignActionCard(
+                title: 'Loyal VIP',
+                countText: '${aiProvider.loyalCustomers.length} Pelanggan',
+                subtitle: 'Apresiasi pelanggan setia dengan voucher reward',
+                icon: Icons.workspace_premium_rounded,
+                accentColor: const Color(0xFFD97706), // Warm Amber
+                bgColor: isDark ? const Color(0xFF1C1914) : const Color(0xFFFFFBEB),
+                borderColor: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
+                buttonLabel: 'Kirim Promo VIP',
+                onTap: () => _showPromoBlastDialog(context, 'Loyal'),
+                isDark: isDark,
+              );
+              final card2 = _buildCampaignActionCard(
+                title: 'Beresiko Churn',
+                countText: '${aiProvider.churnRiskCustomers.length} Pelanggan',
+                subtitle: 'Ajak kembali pelanggan yang lama tidak berkunjung',
+                icon: Icons.replay_circle_filled_rounded,
+                accentColor: const Color(0xFFE11D48), // Rose / Terracotta
+                bgColor: isDark ? const Color(0xFF1F1418) : const Color(0xFFFFF1F2),
+                borderColor: isDark ? const Color(0xFF881337) : const Color(0xFFFECDD3),
+                buttonLabel: 'Ajak Kembali',
+                onTap: () => _showPromoBlastDialog(context, 'Beresiko Churn'),
+                isDark: isDark,
+              );
+
+              if (isSmall) {
+                return Column(
+                  children: [
+                    card1,
+                    const SizedBox(height: 10),
+                    card2,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: card1),
+                  const SizedBox(width: 12),
+                  Expanded(child: card2),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
 
-          // Section Title: Customer List
+          // Section Title: Customer List (Daftar Pelanggan Tersegmentasi)
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Daftar Pelanggan Tersegmentasi',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              Expanded(
+                child: Text(
+                  'Daftar Pelanggan Tersegmentasi',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -557,7 +607,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${aiProvider.clusters.length} Pelanggan Terdata',
+                  '${aiProvider.clusters.length} Pelanggan',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -685,6 +735,8 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                                 fontSize: 11,
                                 color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (phone.isNotEmpty) ...[
                               const SizedBox(height: 2),
@@ -692,12 +744,16 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                                 children: [
                                   const Icon(Icons.chat_bubble_outline_rounded, size: 11, color: Color(0xFF10B981)),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    phone,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF10B981),
+                                  Flexible(
+                                    child: Text(
+                                      phone,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
@@ -752,7 +808,7 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
     required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(14),
@@ -771,13 +827,18 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                 ),
                 child: Icon(icon, size: 16, color: accentColor),
               ),
-              const Spacer(),
-              Text(
-                countText,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: accentColor,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  countText,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -786,10 +847,12 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13.5,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : AppColors.textMain,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 3),
           Text(
@@ -805,19 +868,30 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
           SizedBox(
             width: double.infinity,
             height: 34,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: onTap,
-              icon: const Icon(Icons.send_rounded, size: 13),
-              label: Text(
-                buttonLabel,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.send_rounded, size: 12),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      buttonLabel,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
