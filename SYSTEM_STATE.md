@@ -55,7 +55,8 @@
      - *Stockout Radar*: Prediksi barang yang akan habis dalam 1–4 hari berdasarkan daily burn rate.
      - *Customer Segmentation (RFM)*: Segmentasi Loyal VIP vs Berisiko Churn.
      - *Executive Campaign Action Cards*: Kartu aksi VIP Loyalty Booster & Churn Win-Back yang tactile, bebas AI-slop visual.
-     - *WhatsApp Message Studio Modal*: Pratinjau speech bubble WhatsApp otentik (dengan timestamp dan centang biru ganda ✓✓), mode kustomisasi teks draf, dan tombol 1-tap WhatsApp Launcher.
+     - *WhatsApp Message Studio Modal*: Pratinjau speech bubble WhatsApp otentik (dengan timestamp dan centang biru ganda ✓✓), mode kustomisasi teks draf, dan tombol 1-tap WhatsApp Launcher responsif anti-overflow (tombol primer vertikal + tombol sekunder `Expanded`).
+     - *Anti-Overflow Responsive Layout*: Penerapan `LayoutBuilder` pada kartu aksi kampanye (stack vertikal pada layar < 360px) serta `Expanded` + `TextOverflow.ellipsis` pada judul "Daftar Pelanggan Tersegmentasi" dan baris pelanggan.
      - *1-Tap WhatsApp Chat*: Tombol rapi `[ 💬 Chat WA ]` per pelanggan untuk direct chat via `url_launcher`.
   5. **Laporan & Analitik (Time Range Selector & Adaptive Scaling)**:
      - Filter rentang waktu 4-pilihan: `[ Semua Waktu ]`, `[ 📅 Hari Ini ]`, `[ 📊 7 Hari ]`, `[ 🗓️ Bulan Ini ]`.
