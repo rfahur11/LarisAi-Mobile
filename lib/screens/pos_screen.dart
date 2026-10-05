@@ -10,6 +10,7 @@ import '../providers/pos_provider.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/receipt_dialog.dart';
 import '../widgets/settings_dialog.dart';
+import '../widgets/customer_selector_widget.dart';
 import 'scanner_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class _PosScreenState extends State<PosScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _desktopCashController = TextEditingController();
   final TextEditingController _desktopRefController = TextEditingController();
+  String _desktopSelectedCustomer = '';
   String _desktopPaymentType = 'TUNAI';
   String _desktopSelectedBank = 'BCA';
   String _desktopSelectedEwallet = 'GoPay';
@@ -249,17 +251,7 @@ class _PosScreenState extends State<PosScreen> {
 
     setState(() => _isProcessingCheckout = true);
 
-    String customerNote = _desktopRefController.text.trim();
-    if (_desktopPaymentType == 'TRANSFER') {
-      final bankText = 'Transfer $_desktopSelectedBank';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($bankText)' : bankText;
-    } else if (_desktopPaymentType == 'EWALLET') {
-      final ewText = 'E-Wallet $_desktopSelectedEwallet';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($ewText)' : ewText;
-    } else if (_desktopPaymentType == 'DEBIT') {
-      const debitText = 'Kartu Debit/EDC';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($debitText)' : debitText;
-    }
+    final String customerNote = _desktopSelectedCustomer.trim();
 
     final tx = await posProvider.processCheckout(
       paymentType: _desktopPaymentType,
@@ -1002,14 +994,12 @@ class _PosScreenState extends State<PosScreen> {
 
                       const SizedBox(height: 8),
 
-                      // Optional note field
-                      TextField(
-                        controller: _desktopRefController,
-                        decoration: const InputDecoration(
-                          hintText: 'Nama / Catatan Pelanggan (opsional)',
-                          prefixIcon: Icon(Icons.edit_note_rounded, size: 18),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
+                      // Customer CRM Selector / Input Baru
+                      CustomerSelectorWidget(
+                        isDark: isDark,
+                        onCustomerChanged: (val) {
+                          _desktopSelectedCustomer = val;
+                        },
                       ),
                       const SizedBox(height: 12),
 

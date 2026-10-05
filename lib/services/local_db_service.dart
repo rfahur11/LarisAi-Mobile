@@ -32,10 +32,30 @@ class LocalDbService {
       path,
       version: 1,
       onCreate: _createDB,
+      onOpen: (db) async {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS customers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+          )
+        ''');
+      },
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
+    // 0. Customers Table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // 1. Products Table
     await db.execute('''
       CREATE TABLE products (
@@ -397,12 +417,106 @@ class LocalDbService {
     return predictions;
   }
 
+  // --- CUSTOMER MANAGEMENT & CRM ---
+
+  Future<void> saveCustomer({required String name, required String phone}) async {
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleanName.isEmpty) return;
+
+    final db = await database;
+    final id = cleanPhone.isNotEmpty ? cleanPhone : cleanName.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+
+    await db.insert(
+      'customers',
+      {
+        'id': id,
+        'name': cleanName,
+        'phone': cleanPhone,
+        'created_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<CustomerRecord>> getCustomerHistory() async {
+    final db = await database;
+    final Map<String, CustomerRecord> map = {};
+
+    try {
+      // 1. Fetch from customers table
+      final customerRows = await db.query('customers', orderBy: 'created_at DESC');
+      for (var r in customerRows) {
+        final name = r['name'] as String? ?? '';
+        final phone = r['phone'] as String? ?? '';
+        final id = r['id'] as String? ?? '';
+        if (name.isNotEmpty) {
+          map[name.toLowerCase()] = CustomerRecord(id: id, name: name, phone: phone);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch distinct customers from transactions table (backward compatibility)
+    try {
+      final txRows = await db.rawQuery('''
+        SELECT customer_id, COUNT(*) as freq
+        FROM transactions
+        WHERE customer_id != '' 
+          AND customer_id NOT LIKE 'Transfer%' 
+          AND customer_id NOT LIKE 'E-Wallet%' 
+          AND customer_id NOT LIKE 'Kartu Debit%'
+        GROUP BY customer_id
+        ORDER BY freq DESC, created_at DESC
+        LIMIT 100
+      ''');
+
+      for (var r in txRows) {
+        final rawId = r['customer_id'] as String? ?? '';
+        final freq = (r['freq'] as num?)?.toInt() ?? 1;
+        if (rawId.isEmpty) continue;
+
+        // Check if rawId has format "Name (Phone)"
+        final match = RegExp(r'^(.*?)\s*[\(\-•]\s*(08\d{8,13}|\+?62\d{8,13})\)?$').firstMatch(rawId);
+        String name = rawId;
+        String phone = '';
+        if (match != null) {
+          name = match.group(1)?.trim() ?? rawId;
+          phone = match.group(2)?.trim() ?? '';
+        }
+
+        final key = name.toLowerCase();
+        if (map.containsKey(key)) {
+          map[key] = CustomerRecord(
+            id: map[key]!.id,
+            name: map[key]!.name,
+            phone: map[key]!.phone.isNotEmpty ? map[key]!.phone : phone,
+            totalOrders: freq,
+          );
+        } else {
+          map[key] = CustomerRecord(
+            id: rawId,
+            name: name,
+            phone: phone,
+            totalOrders: freq,
+          );
+        }
+      }
+    } catch (_) {}
+
+    final list = map.values.toList();
+    list.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    return list;
+  }
+
   Future<List<CustomerCluster>> getAiCustomerClusters() async {
     final db = await database;
     final rows = await db.rawQuery('''
       SELECT customer_id, SUM(total_amount) as total_spent, COUNT(*) as freq
       FROM transactions
       WHERE customer_id != ''
+        AND customer_id NOT LIKE 'Transfer%' 
+        AND customer_id NOT LIKE 'E-Wallet%' 
+        AND customer_id NOT LIKE 'Kartu Debit%'
       GROUP BY customer_id
     ''');
 
@@ -430,3 +544,20 @@ class LocalDbService {
     }).toList();
   }
 }
+
+class CustomerRecord {
+  final String id;
+  final String name;
+  final String phone;
+  final int totalOrders;
+
+  const CustomerRecord({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.totalOrders = 0,
+  });
+
+  String get displayName => phone.isNotEmpty ? '$name ($phone)' : name;
+}
+

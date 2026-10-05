@@ -5,6 +5,7 @@ import '../core/utils/currency_formatter.dart';
 import '../core/constants/api_constants.dart';
 import '../providers/pos_provider.dart';
 import 'receipt_dialog.dart';
+import 'customer_selector_widget.dart';
 
 class CheckoutSheet extends StatefulWidget {
   const CheckoutSheet({super.key});
@@ -18,6 +19,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
   int _cashTendered = 0;
   final TextEditingController _cashController = TextEditingController();
   final TextEditingController _customerController = TextEditingController();
+  String _selectedCustomer = '';
   String _selectedBank = 'BCA';
   String _selectedEwallet = 'GoPay';
   bool _isProcessing = false;
@@ -68,17 +70,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
 
     setState(() => _isProcessing = true);
 
-    String customerNote = _customerController.text.trim();
-    if (_selectedPayment == 'TRANSFER') {
-      final bankText = 'Transfer $_selectedBank';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($bankText)' : bankText;
-    } else if (_selectedPayment == 'EWALLET') {
-      final ewText = 'E-Wallet $_selectedEwallet';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($ewText)' : ewText;
-    } else if (_selectedPayment == 'DEBIT') {
-      const debitText = 'Kartu Debit/EDC';
-      customerNote = customerNote.isNotEmpty ? '$customerNote ($debitText)' : debitText;
-    }
+    final String customerNote = _selectedCustomer.trim();
 
     final transaction = await posProvider.processCheckout(
       paymentType: _selectedPayment,
@@ -636,14 +628,12 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
             ],
 
             const SizedBox(height: 12),
-            // Opsional: Customer Name / Note
-            TextField(
-              controller: _customerController,
-              decoration: const InputDecoration(
-                hintText: 'Nama / Catatan Pelanggan (opsional)',
-                prefixIcon: Icon(Icons.person_outline, size: 18),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
+            // Opsional: Customer CRM Selector / Input Baru
+            CustomerSelectorWidget(
+              isDark: isDark,
+              onCustomerChanged: (val) {
+                _selectedCustomer = val;
+              },
             ),
             const SizedBox(height: 16),
 

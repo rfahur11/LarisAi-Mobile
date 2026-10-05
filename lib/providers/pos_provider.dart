@@ -15,6 +15,7 @@ class PosProvider extends ChangeNotifier {
   String _selectedCategory = 'Semua';
   String _searchQuery = '';
   AnalyticsSummary? _summary;
+  List<CustomerRecord> _customerHistory = [];
 
   List<Product> get products {
     if (_selectedCategory == 'Semua') {
@@ -28,6 +29,7 @@ class PosProvider extends ChangeNotifier {
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   AnalyticsSummary? get summary => _summary;
+  List<CustomerRecord> get customerHistory => _customerHistory;
 
   int get totalRevenueToday => _summary?.totalRevenue ?? 0;
   int get totalOrdersToday => _summary?.totalOrders ?? 0;
@@ -48,6 +50,14 @@ class PosProvider extends ChangeNotifier {
   PosProvider() {
     loadProducts();
     loadSummary();
+    loadCustomerHistory();
+  }
+
+  Future<void> loadCustomerHistory() async {
+    try {
+      _customerHistory = await LocalDbService.instance.getCustomerHistory();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> loadSummary() async {
@@ -151,6 +161,16 @@ class PosProvider extends ChangeNotifier {
       }
       clearCart();
       loadSummary();
+
+      // Save customer to CRM database if present
+      if (customerId != null && customerId.trim().isNotEmpty) {
+        final raw = customerId.trim();
+        final match = RegExp(r'^(.*?)\s*[\(\-•]\s*(08\d{8,13}|\+?62\d{8,13})\)?$').firstMatch(raw);
+        final name = match != null ? (match.group(1)?.trim() ?? raw) : raw;
+        final phone = match != null ? (match.group(2)?.trim() ?? '') : '';
+        await LocalDbService.instance.saveCustomer(name: name, phone: phone);
+        await loadCustomerHistory();
+      }
     }
     return transaction;
   }

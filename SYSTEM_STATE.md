@@ -1,7 +1,7 @@
 # 🧭 System State & Living Context: LarisAI Ecosystem
 
-> **Terakhir Diperbarui**: 2026-10-03 19:05 WIB  
-> **Status Build**: Passing (Flutter Mobile & Windows x64, Pure-Dart Excel Engine, SQLite Offline POS, Go Backend, FastAPI AI Engine)  
+> **Terakhir Diperbarui**: 2026-10-05 08:30 WIB  
+> **Status Build**: Passing (Flutter Mobile & Windows x64, Pure-Dart Excel Engine, SQLite Offline POS, Inno Setup Installer, Go Backend, FastAPI AI Engine)  
 > **Root Workspace**: `d:\porto\larisAi`  
 > **Ecosystem Scope**: Multi-repo ecosystem (Backend Go, AI Engine, Web Frontend, Desktop App, Mobile App, Cloud HF Monolith)
 
@@ -12,7 +12,7 @@
 | Sub-Project | Tipe Aplikasi | Tech Stack Utama | Port / Status Deployment | Remote GitHub |
 | :--- | :--- | :--- | :--- | :--- |
 | **`LarisAi-Cloud (HF)`**| Monolith Cloud API | Go POS + FastAPI AI + WA + Nginx | ☁️ https://rfahrur6045-sentimentanalysist.hf.space | Hugging Face Space |
-| **`LarisAi-Mobile`** | Mobile & Desktop POS | Flutter 3.47, Dart 3.13, sqflite FFI, excel 4.0, pdf, printing, share_plus | 📱 Android (OPPO CPH1933) & 💻 Windows Desktop x64 / Web | `git@github.com:rfahur11/LarisAi-Mobile.git` |
+| **`LarisAi-Mobile`** | Mobile & Desktop POS | Flutter 3.47, Dart 3.13, sqflite FFI, excel 4.0, pdf, printing, share_plus | 📱 Android (OPPO CPH1933) & 💻 Windows Desktop x64 / Inno Setup Installer | `git@github.com:rfahur11/LarisAi-Mobile.git` |
 | **`LarisAi-backend`**| Core Microservices | Golang 1.22 (POS), Node.js (Baileys WA), MongoDB 7.0 / Atlas | ⚙️ Port 8080 (POS), Port 8002 (WA), MongoDB Atlas Cloud | `git@github.com:rfahur11/LarisAi-backend.git` |
 | **`LarisAi-AI`**     | AI Inference & ML   | FastAPI, Python 3.11, MLflow, Scikit-Learn, Motor | 🧠 Port 8001 (Stockout Forecasting & RFM Clustering) | `git@github.com:rfahur11/LarisAi-AI.git` |
 | **`LarisAi-frontend`**| Web Dashboard & POS | Next.js 15, React 19, TypeScript, TailwindCSS | 🌐 Port 3000 / Netlify | `git@github.com:rfahur11/LarisAi-frontend.git` |
@@ -47,31 +47,24 @@
        - `STOK MENIPIS` ➔ Langsung melompat ke tab **Katalog Produk (Tab 1)** untuk memeriksa inventori.
        - `AI STOCKOUT RADAR` ➔ Langsung melompat ke tab **AI Insights & Radar (Tab 2)**.
      - **Split-Screen POS**: Grid katalog kiri (3-5 kolom) dan sticky sidebar checkout kanan (400px) dengan shortcut keyboard kasir (`F1` Search, `F2` Tambah Produk, `F7` Tunai, `F8` QRIS, `F9` Selesai Bayar, `Esc` Reset).
-  3. **Profil Toko & UMKM (Store Identity Settings)**:
-     - Pengaturan profil usaha di Tab `[ 🏪 Profil UMKM ]`: Nama Toko/UMKM, Nama Pemilik/Kasir Utama, Alamat Lengkap, Nomor HP/WhatsApp, dan Catatan Kaki Struk (Footer).
-     - Otomatis tersimpan via `SharedPreferences` dan disinkronisasi ke struk thermal 58mm/80mm, invoice PDF, dialog konfirmasi transaksi, serta header navbar kasir.
-  4. **Riwayat Transaksi Hibrida (Modal & Full Page)**:
-     - **Modal Dialog (`OrderHistoryDialog`)**: Akses cepat 1-klik dari Bento Card POS untuk cek nota dan cetak ulang struk tanpa meninggalkan layar penjualan.
-     - **Full Page Tab di `AnalyticsScreen`**: Sub-tab `[ 🧾 Riwayat Transaksi ]` berdampingan dengan `[ 📊 Ringkasan & Tren ]`, dilengkapi pencarian instan (Invoice, Nama Pelanggan, Nama Item), filter chip metode bayar (Tunai, QRIS, Transfer, Debit), dan cetak ulang struk.
-  5. **Ekspor Laporan Microsoft Excel Murni (`.xlsx`)**:
-     - Menggunakan pure-Dart `excel: ^4.0.6` multi-sheet:
-       - **Sheet 1 (`Ringkasan Penjualan`)**: No Invoice, Waktu, Pelanggan, Metode Bayar, Total Belanja (Rp), Jumlah Qty, Rincian Ringkas.
-       - **Sheet 2 (`Rincian Item Terjual`)**: No Invoice, Waktu, ID Produk, Nama Produk, Qty, Harga Satuan (Rp), Subtotal (Rp).
-       - **Sheet 3 / Katalog Inventori (`.xlsx`)**: ID Produk, Barcode, Nama Produk, Kategori, Harga, Stok, Status.
-     - Kompatibel 100% dengan Microsoft Excel, Google Sheets, dan LibreOffice tanpa bug pemisah desimal/koma regional.
-     - Format CSV klasik tetap dipertahankan sebagai opsi alternatif kompatibilitas software legacy.
-  6. **Mobile Layout (< 800px)**: Desain responsif smartphone dengan bottom navigation bar dan bottom sheet checkout.
-  7. **Direct Thermal Printing & Share PDF**: Cetak struk langsung ke printer thermal Bluetooth/USB atau bagikan file PDF digital via WhatsApp.
-  8. **Cadangan Lengkap (Backup / Restore JSON)**:
-     - Backup database lengkap ke file `.json` dan pemulihan (restore) 1-klik.
-  9. **Sistem Lisensi & Anti-Piracy**:
-     - Generate Machine ID Hardware (`LRS-XXXX-XXXX-XXXX`).
-     - Verifikasi signature SHA-256 untuk aktivasi lisensi Lifetime permanen atau Subscription.
-  10. **Pemindai Barcode**: Scanner kamera live fullscreen dengan viewfinder box dan toggle flash.
-  11. **AI Intelligence**:
+  3. **CRM Customer History & Dual-Mode Input (`CustomerSelectorWidget`)**:
+     - Pencarian instan autocomplete pelanggan lama dari SQLite lokal (dengan frekuensi belanja & status loyalitas).
+     - Input pelanggan baru dengan 2 kolom terpisah: Nama Pelanggan & Nomor WhatsApp (otomatis tersimpan ke tabel `customers`).
+     - Pembersihan filter data agar label transfer/e-wallet tidak mengotori database pelanggan.
+  4. **AI Radar & 1-Tap WhatsApp Launcher**:
      - *Stockout Radar*: Prediksi barang yang akan habis dalam 1–4 hari berdasarkan daily burn rate.
      - *Customer Segmentation (RFM)*: Segmentasi Loyal VIP vs Berisiko Churn.
-     - *1-Tap WhatsApp Campaign*: Trigger promo broadcast via WhatsApp Engine.
+     - *1-Tap WhatsApp Chat*: Tombol hijau `[ 💬 WA ]` per pelanggan untuk direct chat via `url_launcher`.
+     - *Promo Blast Dialog*: Tombol `[ 📋 Salin Teks ]` ke clipboard dan `[ 💬 Buka WhatsApp ]` siap kirim di versi Lifetime.
+  5. **Tactile Thermal Paper Receipt & PDF Sharing**:
+     - Desain nota struk thermal otentik dengan pemisah dashed divider rapi.
+     - Rincian belanja (daftar item, qty, harga) transparan sebelum konfirmasi pembayaran di `CheckoutSheet`.
+     - Dynamic divider length (28 karakter untuk 58mm, 40 karakter untuk 80mm) mencegah divider patah menjadi 2 baris di printer thermal.
+  6. **Mobile Layout (< 800px) & Zero-Scroll Filter**:
+     - Filter stok 4-arah responsif (`Semua`, `🔴 Habis`, `🟡 Menipis ≤5`, `🟢 Aman >5`) yang pas di semua lebar smartphone.
+     - Tombol tambah compact squircle icon button tanpa redundansi.
+  7. **Windows Single-File Installer (`.exe`)**:
+     - Skrip Inno Setup (`installer.iss`) yang mengompilasi rilis x64 menjadi `LarisAI_Kasir_Setup_v1.0.exe` (14MB).
 
 ### B. LarisAi-backend (Core POS & WhatsApp Service)
 - **Direktori & Repository**: `d:\porto\larisAi\LarisAi-backend` (`git@github.com:rfahur11/LarisAi-backend.git`)
