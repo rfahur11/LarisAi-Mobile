@@ -51,12 +51,17 @@
      - Pencarian instan autocomplete pelanggan lama dari SQLite lokal (dengan frekuensi belanja & status loyalitas).
      - Input pelanggan baru dengan 2 kolom terpisah: Nama Pelanggan & Nomor WhatsApp (otomatis tersimpan ke tabel `customers`).
      - Pembersihan filter data agar label transfer/e-wallet tidak mengotori database pelanggan.
-  4. **AI Radar & 1-Tap WhatsApp Launcher**:
+  4. **AI Radar & WhatsApp Message Studio (Executive Tactile UI)**:
      - *Stockout Radar*: Prediksi barang yang akan habis dalam 1–4 hari berdasarkan daily burn rate.
      - *Customer Segmentation (RFM)*: Segmentasi Loyal VIP vs Berisiko Churn.
-     - *1-Tap WhatsApp Chat*: Tombol hijau `[ 💬 WA ]` per pelanggan untuk direct chat via `url_launcher`.
-     - *Promo Blast Dialog*: Tombol `[ 📋 Salin Teks ]` ke clipboard dan `[ 💬 Buka WhatsApp ]` siap kirim di versi Lifetime.
-  5. **Tactile Thermal Paper Receipt & PDF Sharing**:
+     - *Executive Campaign Action Cards*: Kartu aksi VIP Loyalty Booster & Churn Win-Back yang tactile, bebas AI-slop visual.
+     - *WhatsApp Message Studio Modal*: Pratinjau speech bubble WhatsApp otentik (dengan timestamp dan centang biru ganda ✓✓), mode kustomisasi teks draf, dan tombol 1-tap WhatsApp Launcher.
+     - *1-Tap WhatsApp Chat*: Tombol rapi `[ 💬 Chat WA ]` per pelanggan untuk direct chat via `url_launcher`.
+  5. **Laporan & Analitik (Time Range Selector & Adaptive Scaling)**:
+     - Filter rentang waktu 4-pilihan: `[ Semua Waktu ]`, `[ 📅 Hari Ini ]`, `[ 📊 7 Hari ]`, `[ 🗓️ Bulan Ini ]`.
+     - Skala sumbu Y (`maxY`) BarChart adaptif otomatis mengikuti penjualan tertinggi harian (+25%).
+     - Urutan data grafik penjualan harian kronologis terbaru dari SQLite lokal.
+  6. **Tactile Thermal Paper Receipt & PDF Sharing**:
      - Desain nota struk thermal otentik dengan pemisah dashed divider rapi.
      - Rincian belanja (daftar item, qty, harga) transparan sebelum konfirmasi pembayaran di `CheckoutSheet`.
      - Dynamic divider length (28 karakter untuk 58mm, 40 karakter untuk 80mm) mencegah divider patah menjadi 2 baris di printer thermal.

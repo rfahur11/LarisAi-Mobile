@@ -328,11 +328,25 @@ class LocalDbService {
   }
 
   // --- ANALYTICS ENGINE (Offline SQLite Queries) ---
-  Future<AnalyticsSummary> getAnalyticsSummary() async {
+  Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA'}) async {
     final db = await database;
+
+    String whereClause = '';
+    final now = DateTime.now();
+    final todayStr = now.toIso8601String().substring(0, 10);
+    final monthStr = now.toIso8601String().substring(0, 7);
+    final sevenDaysAgoStr = now.subtract(const Duration(days: 6)).toIso8601String().substring(0, 10);
+
+    if (timeRange == 'HARI_INI') {
+      whereClause = "WHERE substr(created_at, 1, 10) = '$todayStr'";
+    } else if (timeRange == '7_HARI') {
+      whereClause = "WHERE substr(created_at, 1, 10) >= '$sevenDaysAgoStr'";
+    } else if (timeRange == 'BULAN_INI') {
+      whereClause = "WHERE substr(created_at, 1, 7) = '$monthStr'";
+    }
     
     // Total Revenue & Orders
-    final totalResult = await db.rawQuery('SELECT SUM(total_amount) as rev, COUNT(*) as count FROM transactions');
+    final totalResult = await db.rawQuery('SELECT SUM(total_amount) as rev, COUNT(*) as count FROM transactions $whereClause');
     final totalRevenue = (totalResult.first['rev'] is num) ? (totalResult.first['rev'] as num).toInt() : 0;
     final totalOrders = (totalResult.first['count'] is num) ? (totalResult.first['count'] as num).toInt() : 0;
     final avgOrder = totalOrders > 0 ? (totalRevenue / totalOrders).round() : 0;
@@ -341,6 +355,7 @@ class LocalDbService {
     final payResult = await db.rawQuery('''
       SELECT payment_type, SUM(total_amount) as sum_amt, COUNT(*) as count 
       FROM transactions 
+      $whereClause
       GROUP BY payment_type
     ''');
 
@@ -363,13 +378,15 @@ class LocalDbService {
       ];
     }
 
-    // Daily Sales (last 7 days grouping)
+    // Daily Sales (Most recent 7 days in chronological order)
     final dailyResult = await db.rawQuery('''
-      SELECT substr(created_at, 1, 10) as day, SUM(total_amount) as sum_amt, COUNT(*) as count
-      FROM transactions
-      GROUP BY substr(created_at, 1, 10)
-      ORDER BY day ASC
-      LIMIT 7
+      SELECT day, sum_amt, count FROM (
+        SELECT substr(created_at, 1, 10) as day, SUM(total_amount) as sum_amt, COUNT(*) as count
+        FROM transactions
+        GROUP BY substr(created_at, 1, 10)
+        ORDER BY day DESC
+        LIMIT 7
+      ) ORDER BY day ASC
     ''');
 
     List<DailySale> dailySales = dailyResult.map((d) {

@@ -24,6 +24,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   AnalyticsSummary? _summary;
   bool _isLoading = true;
   int _activeSubTab = 0; // 0: Ringkasan & Tren, 1: Riwayat Transaksi
+  String _selectedTimeRange = 'SEMUA'; // SEMUA, HARI_INI, 7_HARI, BULAN_INI
 
   // Order History state
   final TextEditingController _searchController = TextEditingController();
@@ -49,7 +50,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Future<void> _loadAnalytics() async {
     setState(() => _isLoading = true);
-    final data = await _apiService.getAnalyticsSummary();
+    final data = await _apiService.getAnalyticsSummary(timeRange: _selectedTimeRange);
     if (mounted) {
       setState(() {
         _summary = data;
@@ -281,10 +282,51 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  Widget _buildTimeRangePill(String key, String label, bool isDark) {
+    final isSelected = _selectedTimeRange == key;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_selectedTimeRange != key) {
+            setState(() => _selectedTimeRange = key);
+            _loadAnalytics();
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppColors.darkBackground : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: isSelected
+                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 3)]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryView(bool isDark) {
     if (_summary == null) {
       return const Center(child: Text('Data tidak tersedia'));
     }
+
+    final int maxDaily = (_summary != null && _summary!.dailySales.isNotEmpty)
+        ? _summary!.dailySales.map((d) => d.totalAmount).reduce((a, b) => a > b ? a : b)
+        : 0;
+    final double dynamicMaxY = maxDaily > 0 ? (maxDaily * 1.25) : 500000.0;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -296,6 +338,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Time Range Filter Segmented Pills
+            Container(
+              height: 36,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Row(
+                children: [
+                  _buildTimeRangePill('SEMUA', 'Semua', isDark),
+                  _buildTimeRangePill('HARI_INI', 'Hari Ini', isDark),
+                  _buildTimeRangePill('7_HARI', '7 Hari', isDark),
+                  _buildTimeRangePill('BULAN_INI', 'Bulan Ini', isDark),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
             // Highlight Revenue Card
             Container(
               width: double.infinity,
@@ -337,7 +399,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             // Daily Sales Chart
             Text(
-              'Tren Penjualan 5 Hari Terakhir',
+              'Tren Penjualan Harian Terakhir',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
@@ -359,7 +421,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   child: BarChart(
                     BarChartData(
                       alignment: BarChartAlignment.spaceAround,
-                      maxY: 1000000,
+                      maxY: dynamicMaxY,
                       barTouchData: BarTouchData(
                         enabled: true,
                         touchTooltipData: BarTouchTooltipData(

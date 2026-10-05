@@ -162,20 +162,23 @@ class ApiService {
   }
 
   // --- ANALYTICS ---
-  Future<AnalyticsSummary> getAnalyticsSummary() async {
+  Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA'}) async {
     if (ApiConstants.isOfflineMode) {
-      return await _localDb.getAnalyticsSummary();
+      return await _localDb.getAnalyticsSummary(timeRange: timeRange);
     }
 
     try {
-      final response = await _posDio.get('/api/v1/analytics/summary');
+      final response = await _posDio.get(
+        '/api/v1/analytics/summary',
+        queryParameters: {'time_range': timeRange},
+      );
       if (response.statusCode == 200 && response.data != null) {
         return AnalyticsSummary.fromJson(response.data);
       }
     } catch (_) {
-      return await _localDb.getAnalyticsSummary();
+      return await _localDb.getAnalyticsSummary(timeRange: timeRange);
     }
-    return await _localDb.getAnalyticsSummary();
+    return await _localDb.getAnalyticsSummary(timeRange: timeRange);
   }
 
   // --- AI ENGINE (Stockout & Clustering) ---
