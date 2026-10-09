@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
@@ -37,8 +38,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final barcodeController = TextEditingController();
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    final stockController = TextEditingController();
+    final stockController = TextEditingController(text: '0');
     String category = 'Makanan';
+    String? nameError;
+    String? priceError;
+    String? stockError;
 
     showDialog(
       context: context,
@@ -66,7 +70,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Barcode input with scan button
-                Text('Barcode / SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                Text('Barcode / SKU (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -75,7 +79,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         controller: barcodeController,
                         style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
                         decoration: InputDecoration(
-                          hintText: 'Kode barcode',
+                          hintText: 'Kode barcode / auto-generate',
                           hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                           filled: true,
                           fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -105,14 +109,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Name
-                Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                // Name (Required)
+                Row(
+                  children: [
+                    Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                    const SizedBox(width: 4),
+                    const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameController,
                   style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  onChanged: (_) {
+                    if (nameError != null) setModalState(() => nameError = null);
+                  },
                   decoration: InputDecoration(
                     hintText: 'Contoh: Teh Botol Sosro 450ml',
+                    errorText: nameError,
                     hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                     filled: true,
                     fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -146,21 +160,38 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Price & Stock
+                // Price & Stock (Both Required)
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          Row(
+                            children: [
+                              Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                              const SizedBox(width: 4),
+                              const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           TextField(
                             controller: priceController,
                             keyboardType: TextInputType.number,
-                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              ThousandsSeparatorInputFormatter(),
+                            ],
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            onChanged: (_) {
+                              if (priceError != null) setModalState(() => priceError = null);
+                            },
                             decoration: InputDecoration(
-                              hintText: '10000',
+                              hintText: '0',
+                              errorText: priceError,
+                              prefixText: 'Rp ',
+                              prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.primary),
                               hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                               filled: true,
                               fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -177,14 +208,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          Row(
+                            children: [
+                              Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                              const SizedBox(width: 4),
+                              const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           TextField(
                             controller: stockController,
                             keyboardType: TextInputType.number,
-                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            onChanged: (_) {
+                              if (stockError != null) setModalState(() => stockError = null);
+                            },
                             decoration: InputDecoration(
-                              hintText: '50',
+                              hintText: '0',
+                              errorText: stockError,
+                              suffixText: 'pcs',
+                              suffixStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                               hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                               filled: true,
                               fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -214,13 +260,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
               onPressed: () async {
                 final name = nameController.text.trim();
                 final barcode = barcodeController.text.trim();
-                final price = int.tryParse(priceController.text.trim()) ?? 0;
-                final stock = int.tryParse(stockController.text.trim()) ?? 0;
+                final price = CurrencyFormatter.parseClean(priceController.text);
+                final stockStr = stockController.text.trim();
+                final stock = int.tryParse(stockStr);
 
-                if (name.isEmpty || price <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Lengkapi nama dan harga produk!'), backgroundColor: AppColors.danger),
-                  );
+                bool hasError = false;
+                String? newNameErr;
+                String? newPriceErr;
+                String? newStockErr;
+
+                if (name.isEmpty) {
+                  newNameErr = 'Wajib diisi';
+                  hasError = true;
+                }
+                if (price <= 0) {
+                  newPriceErr = 'Harus > 0';
+                  hasError = true;
+                }
+                if (stockStr.isEmpty || stock == null || stock < 0) {
+                  newStockErr = 'Harus >= 0';
+                  hasError = true;
+                }
+
+                if (hasError) {
+                  setModalState(() {
+                    nameError = newNameErr;
+                    priceError = newPriceErr;
+                    stockError = newStockErr;
+                  });
                   return;
                 }
 
@@ -230,7 +297,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   name: name,
                   category: category,
                   price: price,
-                  stock: stock,
+                  stock: stock!,
                 );
 
                 final posProv = Provider.of<PosProvider>(context, listen: false);
@@ -253,11 +320,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final barcodeController = TextEditingController(text: product.barcode);
     final nameController = TextEditingController(text: product.name);
-    final priceController = TextEditingController(text: product.price.toString());
+    final priceController = TextEditingController(text: CurrencyFormatter.formatNumber(product.price));
     final stockController = TextEditingController(text: product.stock.toString());
     String category = ['Makanan', 'Minuman', 'Sembako', 'Snack', 'Umum'].contains(product.category)
         ? product.category
         : 'Umum';
+    String? nameError;
+    String? priceError;
+    String? stockError;
 
     showDialog(
       context: context,
@@ -322,13 +392,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                Row(
+                  children: [
+                    Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                    const SizedBox(width: 4),
+                    const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameController,
                   style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  onChanged: (_) {
+                    if (nameError != null) setModalState(() => nameError = null);
+                  },
                   decoration: InputDecoration(
                     hintText: 'Contoh: Teh Botol Sosro 450ml',
+                    errorText: nameError,
                     hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                     filled: true,
                     fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -365,14 +445,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          Row(
+                            children: [
+                              Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                              const SizedBox(width: 4),
+                              const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           TextField(
                             controller: priceController,
                             keyboardType: TextInputType.number,
-                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              ThousandsSeparatorInputFormatter(),
+                            ],
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            onChanged: (_) {
+                              if (priceError != null) setModalState(() => priceError = null);
+                            },
                             decoration: InputDecoration(
-                              hintText: '10000',
+                              hintText: '0',
+                              errorText: priceError,
+                              prefixText: 'Rp ',
+                              prefixStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.primary),
                               hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                               filled: true,
                               fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -389,14 +485,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          Row(
+                            children: [
+                              Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                              const SizedBox(width: 4),
+                              const Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           TextField(
                             controller: stockController,
                             keyboardType: TextInputType.number,
-                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            onChanged: (_) {
+                              if (stockError != null) setModalState(() => stockError = null);
+                            },
                             decoration: InputDecoration(
-                              hintText: '50',
+                              hintText: '0',
+                              errorText: stockError,
+                              suffixText: 'pcs',
+                              suffixStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                               hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
                               filled: true,
                               fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -426,13 +537,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
               onPressed: () async {
                 final name = nameController.text.trim();
                 final barcode = barcodeController.text.trim();
-                final price = int.tryParse(priceController.text.trim()) ?? 0;
-                final stock = int.tryParse(stockController.text.trim()) ?? 0;
+                final price = CurrencyFormatter.parseClean(priceController.text);
+                final stockStr = stockController.text.trim();
+                final stock = int.tryParse(stockStr);
 
-                if (name.isEmpty || price <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Lengkapi nama dan harga produk!'), backgroundColor: AppColors.danger),
-                  );
+                bool hasError = false;
+                String? newNameErr;
+                String? newPriceErr;
+                String? newStockErr;
+
+                if (name.isEmpty) {
+                  newNameErr = 'Wajib diisi';
+                  hasError = true;
+                }
+                if (price <= 0) {
+                  newPriceErr = 'Harus > 0';
+                  hasError = true;
+                }
+                if (stockStr.isEmpty || stock == null || stock < 0) {
+                  newStockErr = 'Harus >= 0';
+                  hasError = true;
+                }
+
+                if (hasError) {
+                  setModalState(() {
+                    nameError = newNameErr;
+                    priceError = newPriceErr;
+                    stockError = newStockErr;
+                  });
                   return;
                 }
 
@@ -441,7 +573,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   name: name,
                   category: category,
                   price: price,
-                  stock: stock,
+                  stock: stock!,
                 );
 
                 final posProv = Provider.of<PosProvider>(context, listen: false);
