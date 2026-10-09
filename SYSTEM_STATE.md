@@ -69,7 +69,8 @@
   7. **Mobile Layout (< 800px) & Zero-Scroll Filter**:
      - Filter stok 4-arah responsif (`Semua`, `🔴 Habis`, `🟡 Menipis ≤5`, `🟢 Aman >5`) yang pas di semua lebar smartphone.
      - Top Mobile AppBar interaktif: Menampilkan nama toko UMKM dinamis, nama kasir aktif, serta badge status koneksi (`OFFLINE` / `CLOUD`).
-     - Settings Dialog Mobile Redesign: TabBar scrollable (`isScrollable: true`) dalam pill capsule container dengan ikon taktil (`Profil UMKM`, `Mode Server`, `Data & Backup`, `Lisensi`), viewport dialog proporsional (tinggi 74%), serta tombol aksi `Row` seimbang tanpa teks terpotong.
+     - Settings Dialog Multi-Tab & Dark/Bright Mode: TabBar scrollable (`isScrollable: true`) dalam pill capsule container dengan ikon taktil (`Profil UMKM`, `Tema / Tampilan`, `Mode Server`, `Data & Backup`, `Lisensi`), quick theme toggle button di header dialog, serta tab visual kartu taktil Mode Terang (Bright) dan Mode Gelap (Dark) dengan auto-persist `SharedPreferences`.
+     - Smart Inventory Input Form: Auto thousand-separator formatting Rupiah (`ThousandsSeparatorInputFormatter`), default/placeholder `0`, serta validasi field wajib (`*`).
      - Tombol tambah compact squircle icon button tanpa redundansi.
   8. **Windows Single-File Installer (`.exe`)**:
      - Skrip Inno Setup (`installer.iss`) yang mengompilasi rilis x64 menjadi `LarisAI_Kasir_Setup_v1.0.exe` (14MB).

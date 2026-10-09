@@ -6,6 +6,7 @@ import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/export_service.dart';
 import '../services/license_service.dart';
 import '../services/store_profile_service.dart';
@@ -37,7 +38,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _selectedMode = ApiConstants.currentMode;
     _posController = TextEditingController(text: ApiConstants.posBaseUrl);
     _aiController = TextEditingController(text: ApiConstants.aiBaseUrl);
@@ -420,6 +421,322 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildThemeTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProv = Provider.of<ThemeProvider>(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Mode Tampilan (Theme)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: themeProv.isDarkMode
+                      ? Colors.indigo.withValues(alpha: 0.2)
+                      : Colors.amber.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      themeProv.isDarkMode ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                      size: 13,
+                      color: themeProv.isDarkMode ? Colors.indigoAccent : Colors.orange.shade800,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      themeProv.isDarkMode ? 'Mode Gelap Aktif' : 'Mode Terang Aktif',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: themeProv.isDarkMode ? Colors.indigoAccent : Colors.orange.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Sesuaikan kenyamanan mata kasir dengan kondisi pencahayaan toko Anda.',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Bright / Light Mode Card
+          _buildThemeCard(
+            title: 'Mode Terang (Bright / Light)',
+            subtitle: 'Latar putih bersih dengan kontras optimal untuk siang hari atau toko terang.',
+            icon: Icons.light_mode_rounded,
+            isSelected: !themeProv.isDarkMode,
+            activeColor: Colors.amber.shade700,
+            previewBg: Colors.white,
+            previewCard: const Color(0xFFF3F4F6),
+            previewAccent: AppColors.primary,
+            onTap: () => themeProv.setDarkMode(false),
+          ),
+          const SizedBox(height: 10),
+
+          // Dark Mode Card
+          _buildThemeCard(
+            title: 'Mode Gelap (Dark Mode)',
+            subtitle: 'Warna pekat elegan, mengurangi silau saat shift malam & hemat daya baterai.',
+            icon: Icons.dark_mode_rounded,
+            isSelected: themeProv.isDarkMode,
+            activeColor: Colors.indigoAccent,
+            previewBg: const Color(0xFF0F172A),
+            previewCard: const Color(0xFF1E293B),
+            previewAccent: const Color(0xFF38BDF8),
+            onTap: () => themeProv.setDarkMode(true),
+          ),
+          const SizedBox(height: 12),
+
+          // Quick switch row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 18,
+                  color: isDark ? AppColors.accent : AppColors.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Peralihan Cepat (Quick Switch)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                      ),
+                      Text(
+                        'Ketuk saklar untuk beralih mode seketika',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  value: themeProv.isDarkMode,
+                  activeTrackColor: AppColors.primary,
+                  onChanged: (val) => themeProv.setDarkMode(val),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Info note
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isDark ? AppColors.primary : Colors.blue).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: (isDark ? AppColors.primary : Colors.blue).withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pilihan tema tersimpan permanen di perangkat ini dan langsung diterapkan ke seluruh fitur POS, Katalog, dan Laporan AI.',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      height: 1.35,
+                      color: isDark ? AppColors.darkTextMuted : Colors.blue.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isSelected,
+    required Color activeColor,
+    required Color previewBg,
+    required Color previewCard,
+    required Color previewAccent,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: isDark ? 0.2 : 0.08)
+              : (isDark ? AppColors.darkSurface : Colors.grey.shade50),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? activeColor : (isDark ? AppColors.darkBorder : Colors.grey.shade200),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: isDark ? 0.3 : 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 48,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: previewBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: previewAccent,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: previewCard,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Container(
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: previewCard,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Icon(icon, size: 10, color: isSelected ? activeColor : Colors.grey),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? activeColor : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: activeColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'AKTIF',
+                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: activeColor),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              color: isSelected ? activeColor : (isDark ? AppColors.darkTextMuted : Colors.grey.shade400),
+              size: 22,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1550,6 +1867,21 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   ],
                 ),
               ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProv, _) => IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  tooltip: themeProv.isDarkMode ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap',
+                  icon: Icon(
+                    themeProv.isDarkMode ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+                    size: 20,
+                    color: themeProv.isDarkMode ? Colors.amber : AppColors.primary,
+                  ),
+                  onPressed: () => themeProv.toggleTheme(),
+                ),
+              ),
+              const SizedBox(width: 4),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -1607,6 +1939,17 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(Icons.palette_rounded, size: 15),
+                      SizedBox(width: 6),
+                      Text('Tema / Tampilan'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  height: 34,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Icon(Icons.dns_rounded, size: 15),
                       SizedBox(width: 6),
                       Text('Mode Server'),
@@ -1647,6 +1990,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           controller: _tabController,
           children: [
             _buildStoreProfileTab(),
+            _buildThemeTab(),
             _buildNetworkTab(),
             _buildExportTab(),
             _buildLicenseTab(),
