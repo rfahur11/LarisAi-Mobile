@@ -99,6 +99,39 @@ class ApiService {
     return savedLocal;
   }
 
+  Future<bool> updateProduct(Product product) async {
+    final localSuccess = await _localDb.updateProduct(product);
+    if (!ApiConstants.isOfflineMode) {
+      try {
+        await _posDio.put(
+          '/api/v1/products/${product.id}',
+          data: product.toJson(),
+        );
+      } catch (_) {}
+    }
+    return localSuccess;
+  }
+
+  Future<bool> deleteProduct(String id) async {
+    final localSuccess = await _localDb.deleteProduct(id);
+    if (!ApiConstants.isOfflineMode) {
+      try {
+        await _posDio.delete('/api/v1/products/$id');
+      } catch (_) {}
+    }
+    return localSuccess;
+  }
+
+  Future<bool> voidTransaction(String invoiceNo) async {
+    final localSuccess = await _localDb.voidTransaction(invoiceNo);
+    if (!ApiConstants.isOfflineMode) {
+      try {
+        await _posDio.post('/api/v1/transactions/void', data: {'invoice_no': invoiceNo});
+      } catch (_) {}
+    }
+    return localSuccess;
+  }
+
   // --- CHECKOUT ---
   Future<Transaction?> checkout({
     required List<Map<String, dynamic>> items,

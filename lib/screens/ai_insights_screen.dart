@@ -6,6 +6,8 @@ import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
 import '../providers/ai_provider.dart';
+import '../providers/pos_provider.dart';
+import '../services/local_db_service.dart';
 import '../widgets/settings_dialog.dart';
 
 class AiInsightsScreen extends StatefulWidget {
@@ -62,6 +64,234 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
         }
       }
     }
+  }
+
+  void _showAddCustomerDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: const [
+            Icon(Icons.person_add_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Tambah Kontak CRM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nama Pelanggan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: nameCtrl,
+              style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+              decoration: InputDecoration(
+                hintText: 'Contoh: Bu Anita / Pak Joko',
+                hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('No. WhatsApp (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+              decoration: InputDecoration(
+                hintText: '081234567890',
+                hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final phone = phoneCtrl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Nama pelanggan wajib diisi!'), backgroundColor: AppColors.danger),
+                );
+                return;
+              }
+              final posProv = context.read<PosProvider>();
+              final aiProv = context.read<AiProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              await LocalDbService.instance.saveCustomer(name: name, phone: phone);
+              await posProv.loadCustomerHistory();
+              await aiProv.loadAiData();
+              messenger.showSnackBar(
+                SnackBar(content: Text('✅ Pelanggan $name berhasil disimpan!'), backgroundColor: AppColors.primary),
+              );
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomerEditDialog(BuildContext context, String rawId, String currentName, String currentPhone) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameCtrl = TextEditingController(text: currentName);
+    final phoneCtrl = TextEditingController(text: currentPhone);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: const [
+            Icon(Icons.edit_note_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Edit Data Pelanggan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nama Pelanggan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: nameCtrl,
+              style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('No. WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final phone = phoneCtrl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Nama pelanggan wajib diisi!'), backgroundColor: AppColors.danger),
+                );
+                return;
+              }
+              final posProv = context.read<PosProvider>();
+              final aiProv = context.read<AiProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              await LocalDbService.instance.updateCustomer(id: rawId, name: name, phone: phone);
+              await LocalDbService.instance.saveCustomer(name: name, phone: phone);
+              await posProv.loadCustomerHistory();
+              await aiProv.loadAiData();
+              messenger.showSnackBar(
+                SnackBar(content: Text('✅ Data pelanggan $name berhasil diperbarui!'), backgroundColor: AppColors.primary),
+              );
+            },
+            child: const Text('Simpan Perubahan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomerDeleteDialog(BuildContext context, String rawId, String displayName) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: const [
+            Icon(Icons.person_remove_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text('Hapus Kontak Pelanggan?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          'Yakin ingin menghapus kontak "$displayName" dari daftar CRM toko?',
+          style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final posProv = context.read<PosProvider>();
+              final aiProv = context.read<AiProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              await LocalDbService.instance.deleteCustomer(rawId);
+              await posProv.loadCustomerHistory();
+              await aiProv.loadAiData();
+              messenger.showSnackBar(
+                SnackBar(content: Text('🗑️ Kontak $displayName telah dihapus.'), backgroundColor: Colors.red.shade700),
+              );
+            },
+            child: const Text('Hapus Kontak'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPromoBlastDialog(BuildContext context, String clusterLabel) {
@@ -615,6 +845,19 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.person_add_rounded, size: 14, color: AppColors.primary),
+                label: const Text(
+                  '+ Tambah',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+                onPressed: () => _showAddCustomerDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -785,6 +1028,43 @@ class _AiInsightsScreenState extends State<AiInsightsScreen> with SingleTickerPr
                           },
                         ),
                       ],
+                      const SizedBox(width: 4),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, size: 18, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        color: isDark ? AppColors.darkCard : Colors.white,
+                        onSelected: (val) {
+                          if (val == 'edit') {
+                            _showCustomerEditDialog(context, cluster.customerId, displayName, phone);
+                          } else if (val == 'delete') {
+                            _showCustomerDeleteDialog(context, cluster.customerId, displayName);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.edit_outlined, size: 15, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Text('Edit Kontak', style: TextStyle(fontSize: 12.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: const [
+                                Icon(Icons.delete_outline, size: 15, color: AppColors.danger),
+                                SizedBox(width: 8),
+                                Text('Hapus Kontak', style: TextStyle(fontSize: 12.5, color: AppColors.danger)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

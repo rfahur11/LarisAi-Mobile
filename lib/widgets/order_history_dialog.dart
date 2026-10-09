@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/transaction_model.dart';
+import '../providers/pos_provider.dart';
 import '../services/local_db_service.dart';
 import '../services/export_service.dart';
 import 'receipt_dialog.dart';
@@ -87,6 +89,102 @@ class _OrderHistoryDialogState extends State<OrderHistoryDialog> {
       default:
         return AppColors.accent;
     }
+  }
+
+  void _confirmVoidTransaction(Transaction tx) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalItemsCount = tx.items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text(
+              'Batalkan Transaksi?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Invoice: ${tx.invoiceNo}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Total: ${CurrencyFormatter.format(tx.totalAmount)} (${tx.paymentType})',
+              style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Stok sebanyak $totalItemsCount item akan otomatis dikembalikan ke inventori toko.',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.warning, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Tutup', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final posProv = context.read<PosProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              final success = await posProv.voidTransaction(tx.invoiceNo);
+              if (mounted) {
+                if (success) {
+                  await _loadTransactions();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Transaksi ${tx.invoiceNo} berhasil dibatalkan & stok dikembalikan!'),
+                      backgroundColor: Colors.red.shade700,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal membatalkan transaksi.'),
+                      backgroundColor: AppColors.danger,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Ya, Batalkan Transaksi'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -344,6 +442,25 @@ class _OrderHistoryDialogState extends State<OrderHistoryDialog> {
                                                 ),
                                               ),
                                             ),
+                                            if (tx.isVoid) ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red.withValues(alpha: 0.15),
+                                                  borderRadius: BorderRadius.circular(5),
+                                                  border: Border.all(color: Colors.red.shade400, width: 0.8),
+                                                ),
+                                                child: const Text(
+                                                  'BATAL (VOID)',
+                                                  style: TextStyle(
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                         const SizedBox(height: 3),
@@ -379,42 +496,68 @@ class _OrderHistoryDialogState extends State<OrderHistoryDialog> {
                                     ),
                                   ),
 
-                                  // Right Amount & Print Button
+                                  // Right Amount & Print/Void Button
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
                                         CurrencyFormatter.format(tx.totalAmount),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w800,
-                                          color: AppColors.primary,
+                                          color: tx.isVoid ? (isDark ? AppColors.darkTextMuted : Colors.grey) : AppColors.primary,
+                                          decoration: tx.isVoid ? TextDecoration.lineThrough : null,
                                         ),
                                       ),
                                       const SizedBox(height: 6),
-                                      OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                          visualDensity: VisualDensity.compact,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          side: BorderSide(
-                                            color: isDark ? AppColors.darkBorder : AppColors.primary.withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                                        icon: const Icon(Icons.receipt_rounded, size: 14, color: AppColors.primary),
-                                        label: const Text(
-                                          'Struk',
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                        ),
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (_) => ReceiptDialog(
-                                              transaction: tx,
-                                              cashTendered: tx.totalAmount,
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (!tx.isVoid) ...[
+                                            OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: AppColors.danger,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                visualDensity: VisualDensity.compact,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                side: BorderSide(
+                                                  color: AppColors.danger.withValues(alpha: 0.5),
+                                                ),
+                                              ),
+                                              icon: const Icon(Icons.undo_rounded, size: 13, color: AppColors.danger),
+                                              label: const Text(
+                                                'Void',
+                                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.danger),
+                                              ),
+                                              onPressed: () => _confirmVoidTransaction(tx),
                                             ),
-                                          );
-                                        },
+                                            const SizedBox(width: 6),
+                                          ],
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              visualDensity: VisualDensity.compact,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              side: BorderSide(
+                                                color: isDark ? AppColors.darkBorder : AppColors.primary.withValues(alpha: 0.5),
+                                              ),
+                                            ),
+                                            icon: const Icon(Icons.receipt_rounded, size: 14, color: AppColors.primary),
+                                            label: const Text(
+                                              'Struk',
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                            ),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (_) => ReceiptDialog(
+                                                  transaction: tx,
+                                                  cashTendered: tx.totalAmount,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),

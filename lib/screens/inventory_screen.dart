@@ -233,18 +233,286 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   stock: stock,
                 );
 
-                await Provider.of<PosProvider>(context, listen: false).addNewProduct(product);
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ $name berhasil ditambahkan ke katalog!'), backgroundColor: AppColors.primary),
-                  );
-                }
+                final posProv = Provider.of<PosProvider>(context, listen: false);
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(ctx);
+                await posProv.addNewProduct(product);
+                messenger.showSnackBar(
+                  SnackBar(content: Text('✅ $name berhasil ditambahkan ke katalog!'), backgroundColor: AppColors.primary),
+                );
               },
               child: const Text('Simpan Produk'),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditProductDialog(BuildContext context, Product product) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barcodeController = TextEditingController(text: product.barcode);
+    final nameController = TextEditingController(text: product.name);
+    final priceController = TextEditingController(text: product.price.toString());
+    final stockController = TextEditingController(text: product.stock.toString());
+    String category = ['Makanan', 'Minuman', 'Sembako', 'Snack', 'Umum'].contains(product.category)
+        ? product.category
+        : 'Umum';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.edit_note_rounded, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Edit Produk',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Barcode / SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: barcodeController,
+                        style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                        decoration: InputDecoration(
+                          hintText: 'Kode barcode',
+                          hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                          filled: true,
+                          fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: AppColors.primary),
+                      onPressed: () async {
+                        final code = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ScannerScreen()),
+                        );
+                        if (code != null) {
+                          setModalState(() {
+                            barcodeController.text = code;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.qr_code_scanner, size: 20, color: Colors.white),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('Nama Produk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: nameController,
+                  style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  decoration: InputDecoration(
+                    hintText: 'Contoh: Teh Botol Sosro 450ml',
+                    hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Kategori', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  dropdownColor: isDark ? AppColors.darkCard : Colors.white,
+                  style: TextStyle(fontSize: 14, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                  ),
+                  items: ['Makanan', 'Minuman', 'Sembako', 'Snack', 'Umum']
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(fontSize: 14, color: isDark ? AppColors.darkTextMain : AppColors.textMain))))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setModalState(() => category = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Harga Jual (Rp)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: priceController,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            decoration: InputDecoration(
+                              hintText: '10000',
+                              hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                              filled: true,
+                              fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Jumlah Stok', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: stockController,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                            decoration: InputDecoration(
+                              hintText: '50',
+                              hintStyle: TextStyle(color: isDark ? AppColors.darkTextMuted : null),
+                              filled: true,
+                              fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppColors.darkBorder : Colors.grey.shade200)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final barcode = barcodeController.text.trim();
+                final price = int.tryParse(priceController.text.trim()) ?? 0;
+                final stock = int.tryParse(stockController.text.trim()) ?? 0;
+
+                if (name.isEmpty || price <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Lengkapi nama dan harga produk!'), backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
+
+                final updated = product.copyWith(
+                  barcode: barcode.isNotEmpty ? barcode : product.barcode,
+                  name: name,
+                  category: category,
+                  price: price,
+                  stock: stock,
+                );
+
+                final posProv = Provider.of<PosProvider>(context, listen: false);
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(ctx);
+                await posProv.updateProduct(updated);
+                messenger.showSnackBar(
+                  SnackBar(content: Text('✅ $name berhasil diperbarui!'), backgroundColor: AppColors.primary),
+                );
+              },
+              child: const Text('Simpan Perubahan'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteProductDialog(BuildContext context, Product product) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_forever_rounded, color: AppColors.danger),
+            const SizedBox(width: 8),
+            Text(
+              'Hapus Produk?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Yakin ingin menghapus "${product.name}" dari katalog produk? Tindakan ini akan menghapus data produk secara permanen.',
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : null)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final posProv = Provider.of<PosProvider>(context, listen: false);
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              await posProv.deleteProduct(product.id);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('🗑️ ${product.name} berhasil dihapus dari inventori.'),
+                  backgroundColor: Colors.red.shade700,
+                ),
+              );
+            },
+            child: const Text('Hapus Produk'),
+          ),
+        ],
       ),
     );
   }
@@ -879,127 +1147,173 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           final isOutOfStock = product.stock <= 0;
                           final isLowStock = product.stock > 0 && product.stock <= 5;
 
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkSurface : Colors.white,
+                          return Material(
+                            color: isDark ? AppColors.darkSurface : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isDark ? AppColors.darkBorder : AppColors.border,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                // Icon Box
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: isOutOfStock
-                                        ? (isDark ? const Color(0xFF450A0A) : Colors.red.shade50)
-                                        : (isLowStock
-                                            ? (isDark ? const Color(0xFF451A03) : Colors.amber.shade50)
-                                            : (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)),
-                                    borderRadius: BorderRadius.circular(10),
+                              onTap: () => _showEditProductDialog(context, product),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isDark ? AppColors.darkBorder : AppColors.border,
                                   ),
-                                  child: Icon(
-                                    isOutOfStock
-                                        ? Icons.remove_shopping_cart_rounded
-                                        : (isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_rounded),
-                                    color: isOutOfStock
-                                        ? AppColors.danger
-                                        : (isLowStock ? AppColors.warning : AppColors.primaryDark),
-                                    size: 22,
-                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 12),
-
-                                // Product Info
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product.name,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    // Icon Box
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: isOutOfStock
+                                            ? (isDark ? const Color(0xFF450A0A) : Colors.red.shade50)
+                                            : (isLowStock
+                                                ? (isDark ? const Color(0xFF451A03) : Colors.amber.shade50)
+                                                : (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
-                                      const SizedBox(height: 3),
-                                      Row(
+                                      child: Icon(
+                                        isOutOfStock
+                                            ? Icons.remove_shopping_cart_rounded
+                                            : (isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_rounded),
+                                        color: isOutOfStock
+                                            ? AppColors.danger
+                                            : (isLowStock ? AppColors.warning : AppColors.primaryDark),
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+
+                                    // Product Info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Icon(Icons.qr_code, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
-                                          const SizedBox(width: 4),
                                           Text(
-                                            product.barcode,
-                                            style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                            product.name,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: isDark ? AppColors.darkCard : Colors.grey.shade100,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              product.category,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              Icon(Icons.qr_code, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                product.barcode,
+                                                style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                                               ),
-                                            ),
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                decoration: BoxDecoration(
+                                                  color: isDark ? AppColors.darkCard : Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  product.category,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            CurrencyFormatter.format(product.price),
+                                            style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary, fontSize: 13),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        CurrencyFormatter.format(product.price),
-                                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary, fontSize: 13),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
 
-                                // Stock Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: isOutOfStock
-                                        ? Colors.red.withValues(alpha: 0.15)
-                                        : (isLowStock
-                                            ? Colors.amber.withValues(alpha: 0.2)
-                                            : Colors.teal.withValues(alpha: 0.15)),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isOutOfStock
-                                          ? AppColors.danger
-                                          : (isLowStock ? AppColors.warning : AppColors.success),
+                                    // Stock Badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isOutOfStock
+                                            ? Colors.red.withValues(alpha: 0.15)
+                                            : (isLowStock
+                                                ? Colors.amber.withValues(alpha: 0.2)
+                                                : Colors.teal.withValues(alpha: 0.15)),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isOutOfStock
+                                              ? AppColors.danger
+                                              : (isLowStock ? AppColors.warning : AppColors.success),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isOutOfStock ? 'HABIS (0)' : '${product.stock} pcs',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isOutOfStock
+                                              ? AppColors.danger
+                                              : (isLowStock ? AppColors.warning : AppColors.success),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    isOutOfStock ? 'HABIS (0)' : '${product.stock} pcs',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isOutOfStock
-                                          ? AppColors.danger
-                                          : (isLowStock ? AppColors.warning : AppColors.success),
+                                    const SizedBox(width: 4),
+
+                                    // Popup Action Menu
+                                    PopupMenuButton<String>(
+                                      icon: Icon(Icons.more_vert, size: 20, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      color: isDark ? AppColors.darkCard : Colors.white,
+                                      onSelected: (val) {
+                                        if (val == 'edit') {
+                                          _showEditProductDialog(context, product);
+                                        } else if (val == 'delete') {
+                                          _showDeleteProductDialog(context, product);
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                                              const SizedBox(width: 8),
+                                              Text('Edit Produk', style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: const [
+                                              Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                                              SizedBox(width: 8),
+                                              Text('Hapus Produk', style: TextStyle(fontSize: 13, color: AppColors.danger)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                         },

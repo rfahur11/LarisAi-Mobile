@@ -41,6 +41,9 @@ class LocalDbService {
             created_at TEXT NOT NULL
           )
         ''');
+        try {
+          await db.execute("ALTER TABLE transactions ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETED'");
+        } catch (_) {}
       },
     );
   }
@@ -79,6 +82,7 @@ class LocalDbService {
         customer_id TEXT NOT NULL DEFAULT '',
         total_amount INTEGER NOT NULL,
         payment_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'COMPLETED',
         created_at TEXT NOT NULL
       )
     ''');
@@ -220,6 +224,16 @@ class LocalDbService {
     return count > 0;
   }
 
+  Future<bool> deleteProduct(String id) async {
+    final db = await database;
+    final count = await db.delete(
+      'products',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return count > 0;
+  }
+
   Future<bool> reduceStock(String productId, int quantity) async {
     final db = await database;
     final res = await db.rawUpdate(
@@ -272,6 +286,7 @@ class LocalDbService {
         'customer_id': customerId ?? '',
         'total_amount': totalAmount,
         'payment_type': paymentType,
+        'status': 'COMPLETED',
         'created_at': now.toIso8601String(),
       });
 
@@ -299,6 +314,7 @@ class LocalDbService {
       customerId: customerId ?? '',
       totalAmount: totalAmount,
       paymentType: paymentType,
+      status: 'COMPLETED',
       createdAt: now,
       items: txItems,
     );
@@ -320,6 +336,7 @@ class LocalDbService {
         customerId: tx['customer_id'] as String? ?? '',
         totalAmount: tx['total_amount'] as int,
         paymentType: tx['payment_type'] as String,
+        status: tx['status'] as String? ?? 'COMPLETED',
         createdAt: DateTime.tryParse(tx['created_at'].toString()) ?? DateTime.now(),
         items: items,
       ));
@@ -327,22 +344,58 @@ class LocalDbService {
     return result;
   }
 
+  Future<bool> voidTransaction(String invoiceNo) async {
+    final db = await database;
+    final txMaps = await db.query('transactions', where: 'invoice_no = ?', whereArgs: [invoiceNo]);
+    if (txMaps.isEmpty) return false;
+
+    final tx = txMaps.first;
+    if ((tx['status'] as String? ?? '').toUpperCase() == 'VOID') {
+      return false; // Already voided
+    }
+
+    final txId = tx['id'] as String;
+
+    await db.transaction((txn) async {
+      await txn.update(
+        'transactions',
+        {'status': 'VOID'},
+        where: 'id = ?',
+        whereArgs: [txId],
+      );
+
+      final items = await txn.query('transaction_items', where: 'transaction_id = ?', whereArgs: [txId]);
+      for (var item in items) {
+        final pId = item['product_id'] as String;
+        final qty = (item['quantity'] is num) ? (item['quantity'] as num).toInt() : 0;
+        if (qty > 0) {
+          await txn.rawUpdate(
+            'UPDATE products SET stock = stock + ?, updated_at = ? WHERE id = ?',
+            [qty, DateTime.now().toIso8601String(), pId],
+          );
+        }
+      }
+    });
+
+    return true;
+  }
+
   // --- ANALYTICS ENGINE (Offline SQLite Queries) ---
   Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA'}) async {
     final db = await database;
 
-    String whereClause = '';
+    String whereClause = "WHERE (status IS NULL OR status != 'VOID')";
     final now = DateTime.now();
     final todayStr = now.toIso8601String().substring(0, 10);
     final monthStr = now.toIso8601String().substring(0, 7);
     final sevenDaysAgoStr = now.subtract(const Duration(days: 6)).toIso8601String().substring(0, 10);
 
     if (timeRange == 'HARI_INI') {
-      whereClause = "WHERE substr(created_at, 1, 10) = '$todayStr'";
+      whereClause += " AND substr(created_at, 1, 10) = '$todayStr'";
     } else if (timeRange == '7_HARI') {
-      whereClause = "WHERE substr(created_at, 1, 10) >= '$sevenDaysAgoStr'";
+      whereClause += " AND substr(created_at, 1, 10) >= '$sevenDaysAgoStr'";
     } else if (timeRange == 'BULAN_INI') {
-      whereClause = "WHERE substr(created_at, 1, 7) = '$monthStr'";
+      whereClause += " AND substr(created_at, 1, 7) = '$monthStr'";
     }
     
     // Total Revenue & Orders
@@ -383,6 +436,7 @@ class LocalDbService {
       SELECT day, sum_amt, count FROM (
         SELECT substr(created_at, 1, 10) as day, SUM(total_amount) as sum_amt, COUNT(*) as count
         FROM transactions
+        WHERE (status IS NULL OR status != 'VOID')
         GROUP BY substr(created_at, 1, 10)
         ORDER BY day DESC
         LIMIT 7
@@ -454,6 +508,30 @@ class LocalDbService {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<bool> updateCustomer({required String id, required String name, required String phone}) async {
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleanName.isEmpty) return false;
+
+    final db = await database;
+    final count = await db.update(
+      'customers',
+      {
+        'name': cleanName,
+        'phone': cleanPhone,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return count > 0;
+  }
+
+  Future<bool> deleteCustomer(String id) async {
+    final db = await database;
+    final count = await db.delete('customers', where: 'id = ?', whereArgs: [id]);
+    return count > 0;
   }
 
   Future<List<CustomerRecord>> getCustomerHistory() async {

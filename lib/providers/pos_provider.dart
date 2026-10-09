@@ -182,6 +182,47 @@ class PosProvider extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> updateProduct(Product product) async {
+    final success = await _apiService.updateProduct(product);
+    if (success) {
+      final index = _products.indexWhere((p) => p.id == product.id);
+      if (index >= 0) {
+        _products[index] = product;
+      }
+      final cartIndex = _cart.indexWhere((item) => item.product.id == product.id);
+      if (cartIndex >= 0) {
+        final currentQty = _cart[cartIndex].quantity;
+        _cart[cartIndex] = CartItem(
+          product: product,
+          quantity: currentQty.clamp(1, product.stock > 0 ? product.stock : 1),
+        );
+      }
+      notifyListeners();
+    }
+    return success;
+  }
+
+  Future<bool> deleteProduct(String id) async {
+    final success = await _apiService.deleteProduct(id);
+    if (success) {
+      _products.removeWhere((p) => p.id == id);
+      _cart.removeWhere((item) => item.product.id == id);
+      notifyListeners();
+    }
+    return success;
+  }
+
+  Future<bool> voidTransaction(String invoiceNo) async {
+    final success = await _apiService.voidTransaction(invoiceNo);
+    if (success) {
+      await loadProducts();
+      await loadSummary();
+      await loadCustomerHistory();
+      notifyListeners();
+    }
+    return success;
+  }
+
   // --- PURGE & RESET ACTIONS ---
   Future<void> clearTransactions() async {
     await LocalDbService.instance.clearTransactionsOnly();

@@ -54,6 +54,16 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
     });
   }
 
+  void _syncCashTendered() {
+    setState(() {
+      final newTotal = Provider.of<PosProvider>(context, listen: false).totalAmount;
+      if (_cashTendered < newTotal || _cashController.text.trim().isEmpty) {
+        _cashTendered = newTotal;
+        _cashController.text = newTotal.toString();
+      }
+    });
+  }
+
   Future<void> _handlePay() async {
     final posProvider = Provider.of<PosProvider>(context, listen: false);
     final total = posProvider.totalAmount;
@@ -129,46 +139,75 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
               ),
             ),
 
-            // Header Title & Offline Lifetime Indicator
+            // Header Title & Navigation Controls
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pembayaran Kasir',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Kembali ke Kasir',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pembayaran Kasir',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      ApiConstants.isOfflineMode
-                          ? '📦 Mode Lifetime (100% Offline SQLite)'
-                          : '☁️ Mode Cloud SaaS (Online)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ApiConstants.isOfflineMode
-                            ? (isDark ? AppColors.primaryLight : AppColors.primaryDark)
-                            : (isDark ? AppColors.accentLight : AppColors.accentDark),
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 2),
+                      Text(
+                        ApiConstants.isOfflineMode
+                            ? '📦 Mode Lifetime (100% Offline SQLite)'
+                            : '☁️ Mode Cloud SaaS (Online)',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: ApiConstants.isOfflineMode
+                              ? (isDark ? AppColors.primaryLight : AppColors.primaryDark)
+                              : (isDark ? AppColors.accentLight : AppColors.accentDark),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
+                    color: isDark ? const Color(0xFF042F2E) : AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${posProvider.totalItems} item',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.primaryHover : AppColors.primaryDark,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 22),
+                  tooltip: 'Tutup',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                 ),
               ],
             ),
@@ -265,10 +304,10 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                   if (_isOrderDetailsExpanded) ...[
                     Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
                     Container(
-                      constraints: const BoxConstraints(maxHeight: 160),
+                      constraints: const BoxConstraints(maxHeight: 200),
                       child: ListView.separated(
                         shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         itemCount: posProvider.cart.length,
                         separatorBuilder: (context, index) => Divider(
                           height: 12,
@@ -285,7 +324,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                                     Text(
                                       item.product.name,
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 12.5,
                                         fontWeight: FontWeight.w600,
                                         color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                                       ),
@@ -294,7 +333,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${item.quantity} x ${CurrencyFormatter.format(item.product.price)}',
+                                      CurrencyFormatter.format(item.product.price),
                                       style: TextStyle(
                                         fontSize: 10.5,
                                         color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
@@ -303,12 +342,78 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                                   ],
                                 ),
                               ),
-                              Text(
-                                CurrencyFormatter.format(item.subtotal),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+                              // Interactive Quantity Stepper
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: Icon(
+                                        item.quantity == 1 ? Icons.delete_outline_rounded : Icons.remove_rounded,
+                                        size: 15,
+                                        color: item.quantity == 1 ? AppColors.danger : (isDark ? Colors.white70 : Colors.black87),
+                                      ),
+                                      onPressed: () {
+                                        posProvider.decreaseQuantity(item.product);
+                                        if (posProvider.cart.isEmpty) {
+                                          Navigator.pop(context);
+                                        } else {
+                                          _syncCashTendered();
+                                        }
+                                      },
+                                    ),
+                                    Text(
+                                      '${item.quantity}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.add_rounded, size: 15, color: AppColors.primary),
+                                      onPressed: () {
+                                        if (item.quantity < item.product.stock) {
+                                          posProvider.addToCart(item.product);
+                                          _syncCashTendered();
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('⚠️ Stok barang tidak mencukupi!'),
+                                              duration: Duration(seconds: 1),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 75,
+                                child: Text(
+                                  CurrencyFormatter.format(item.subtotal),
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? const Color(0xFF34D399) : AppColors.primaryDark,
+                                  ),
                                 ),
                               ),
                             ],

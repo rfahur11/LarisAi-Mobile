@@ -71,11 +71,18 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     // --- MOBILE LAYOUT (< 800px) ---
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex != 0) {
+          _onTabSelected(0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : Colors.white,
@@ -115,6 +122,7 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

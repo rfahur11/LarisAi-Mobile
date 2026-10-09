@@ -30,8 +30,11 @@ class Transaction {
   final String customerId;
   final int totalAmount;
   final String paymentType;
+  final String status;
   final DateTime createdAt;
   final List<TransactionItem> items;
+
+  bool get isVoid => status.toUpperCase() == 'VOID';
 
   Transaction({
     required this.id,
@@ -39,6 +42,7 @@ class Transaction {
     this.customerId = '',
     required this.totalAmount,
     required this.paymentType,
+    this.status = 'COMPLETED',
     required this.createdAt,
     required this.items,
   });
@@ -55,6 +59,7 @@ class Transaction {
       customerId: json['customer_id']?.toString() ?? '',
       totalAmount: (json['total_amount'] is num) ? (json['total_amount'] as num).toInt() : 0,
       paymentType: json['payment_type']?.toString() ?? 'TUNAI',
+      status: json['status']?.toString() ?? 'COMPLETED',
       createdAt: json['created_at'] != null 
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
