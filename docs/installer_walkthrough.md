@@ -64,10 +64,9 @@ Download and install Inno Setup 6 from the official site: https://jrsoftware.org
 You can test and run LarisAI directly as a native Windows desktop app during development:
 
 ### A. Run in Development Mode (with Hot Reload)
+#### ⚡ 1-Line PowerShell:
 ```powershell
-cd d:\porto\larisAi\LarisAi-Mobile
-$env:PUB_CACHE = "D:\flutter_pub_cache"
-flutter run -d windows
+cd d:\porto\larisAi\LarisAi-Mobile; $env:PUB_CACHE = "D:\flutter_pub_cache"; flutter run -d windows
 ```
 
 - **Hot Reload**: Press `r` in the terminal for instant UI updates.
@@ -86,10 +85,9 @@ Once built, you can run the executable directly without Flutter or VS Code:
 
 To compile the optimized, production AOT (Ahead-Of-Time) binary for 64-bit Windows:
 
+#### ⚡ 1-Line PowerShell:
 ```powershell
-cd d:\porto\larisAi\LarisAi-Mobile
-$env:PUB_CACHE = "D:\flutter_pub_cache"
-flutter build windows --release
+cd d:\porto\larisAi\LarisAi-Mobile; $env:PUB_CACHE = "D:\flutter_pub_cache"; flutter build windows --release
 ```
 
 ### Structure of the Compiled Release Folder:
@@ -120,20 +118,29 @@ The project includes a pre-configured Inno Setup script at: `windows/installer.i
 - 🧹 **Integrated Uninstaller**: Cleanly registers in Windows Settings / Control Panel (**Installed Apps / Add or Remove Programs**).
 - 🚀 **Auto Launch**: Automatically offers to start LarisAI Kasir upon setup completion.
 
-### Compiling the Installer via CLI:
+### Compiling the Installer via CLI (1-Line Commands):
 
-#### If Inno Setup was installed via Winget:
+> [!NOTE]
+> **PowerShell 1-Line Syntax**: In Windows PowerShell, multiple commands are chained using `;` (semicolon), **not** `&`. (In PowerShell, `&` is the call operator used before quoted executable paths).
+
+#### ⚡ 1-Line PowerShell (Recommended - Works from any folder):
 ```powershell
-cd d:\porto\larisAi\LarisAi-Mobile
-& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" windows\installer.iss
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" "d:\porto\larisAi\LarisAi-Mobile\windows\installer.iss"
 ```
 
-#### If Inno Setup was installed globally via standard installer:
+#### ⚡ 1-Line PowerShell with `cd`:
 ```powershell
-cd d:\porto\larisAi\LarisAi-Mobile
-& "C:\Program Files\Inno Setup 6\ISCC.exe" windows\installer.iss
-# Or on 32-bit Program Files:
-& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer.iss
+cd d:\porto\larisAi\LarisAi-Mobile; & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" windows\installer.iss
+```
+
+#### If Inno Setup was installed in Program Files:
+```powershell
+cd d:\porto\larisAi\LarisAi-Mobile; & "C:\Program Files\Inno Setup 6\ISCC.exe" windows\installer.iss
+```
+
+#### ⚡ 1-Line for Classic CMD (Command Prompt):
+```cmd
+cd /d d:\porto\larisAi\LarisAi-Mobile && "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" windows\installer.iss
 ```
 
 ### Resulting Output:
@@ -194,10 +201,9 @@ Write-Host "✅ All distribution packages ready in: build\dist\" -ForegroundColo
 ### Option A: Universal Release APK (Recommended for WhatsApp sharing)
 Contains all CPU architectures (`armeabi-v7a`, `arm64-v8a`, `x86_64`) so merchants on any Android smartphone or tablet can install it directly.
 
+#### ⚡ 1-Line PowerShell:
 ```powershell
-cd d:\porto\larisAi\LarisAi-Mobile
-$env:PUB_CACHE = "D:\flutter_pub_cache"
-flutter build apk --release
+cd d:\porto\larisAi\LarisAi-Mobile; $env:PUB_CACHE = "D:\flutter_pub_cache"; flutter build apk --release
 ```
 - **Output**: `build\app\outputs\flutter-apk\app-release.apk` (~45 MB)
 
