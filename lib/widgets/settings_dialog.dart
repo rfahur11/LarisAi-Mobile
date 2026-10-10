@@ -1101,11 +1101,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     final messenger = ScaffoldMessenger.of(context);
     final posProv = Provider.of<PosProvider>(context, listen: false);
 
-    final success = await AuthService.instance.login(email: email, password: password);
+    final effectiveUrl = _posController.text.trim().startsWith('http')
+        ? _posController.text.trim()
+        : ApiConstants.cloudPosBaseUrl;
+
+    final success = await AuthService.instance.login(
+      email: email,
+      password: password,
+      baseUrl: effectiveUrl,
+    );
     if (!mounted) return;
 
     setState(() {});
     if (success) {
+      if (_selectedMode == ConnectionMode.offline) {
+        _selectMode(ConnectionMode.cloud);
+      }
+      await ApiConstants.setMode(_selectedMode);
+      posProv.updateBaseUrls();
       await posProv.loadProducts();
       messenger.showSnackBar(
         SnackBar(
@@ -2292,7 +2305,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   if (!context.mounted) return;
 
                   // Refresh data in providers
-                  Provider.of<PosProvider>(context, listen: false).loadProducts();
+                  final posProv = Provider.of<PosProvider>(context, listen: false);
+                  posProv.updateBaseUrls();
+                  posProv.loadProducts();
                   Provider.of<AiProvider>(context, listen: false).loadAiData();
 
                   Navigator.pop(context);

@@ -67,7 +67,12 @@ class PosProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  void updateBaseUrls() {
+    _apiService.updateBaseUrls();
+  }
+
   Future<void> loadProducts({String? search}) async {
+    _apiService.updateBaseUrls();
     _isLoading = true;
     notifyListeners();
     _searchQuery = search ?? '';

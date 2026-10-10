@@ -34,13 +34,19 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login({required String email, required String password}) async {
+  Future<bool> login({required String email, required String password, String? baseUrl}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      final effectiveUrl = (baseUrl != null && baseUrl.startsWith('http'))
+          ? baseUrl
+          : (ApiConstants.posBaseUrl.startsWith('http')
+              ? ApiConstants.posBaseUrl
+              : ApiConstants.cloudPosBaseUrl);
+
       final dio = Dio(BaseOptions(
-        baseUrl: ApiConstants.posBaseUrl,
+        baseUrl: effectiveUrl,
         connectTimeout: const Duration(seconds: 8),
         receiveTimeout: const Duration(seconds: 8),
         headers: {'Content-Type': 'application/json'},
