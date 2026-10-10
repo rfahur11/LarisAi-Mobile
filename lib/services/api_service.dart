@@ -4,6 +4,7 @@ import '../models/product_model.dart';
 import '../models/transaction_model.dart';
 import '../models/ai_insights_model.dart';
 import '../models/analytics_model.dart';
+import 'auth_service.dart';
 import 'local_db_service.dart';
 
 class ApiService {
@@ -14,17 +15,44 @@ class ApiService {
   ApiService() {
     _posDio = Dio(BaseOptions(
       baseUrl: ApiConstants.posBaseUrl,
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
       headers: {'Content-Type': 'application/json'},
     ));
 
     _aiDio = Dio(BaseOptions(
       baseUrl: ApiConstants.aiBaseUrl,
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
       headers: {'Content-Type': 'application/json'},
     ));
+
+    final authInterceptor = InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = AuthService.instance.token;
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 401 && !ApiConstants.isOfflineMode) {
+          final email = AuthService.instance.email ?? 'admin@larisai.com';
+          final success = await AuthService.instance.login(email: email, password: 'admin123');
+          if (success && AuthService.instance.token != null) {
+            e.requestOptions.headers['Authorization'] = 'Bearer ${AuthService.instance.token}';
+            try {
+              final cloneReq = await _posDio.fetch(e.requestOptions);
+              return handler.resolve(cloneReq);
+            } catch (_) {}
+          }
+        }
+        return handler.next(e);
+      },
+    );
+
+    _posDio.interceptors.add(authInterceptor);
+    _aiDio.interceptors.add(authInterceptor);
   }
 
   void updateBaseUrls() {

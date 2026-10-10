@@ -70,6 +70,7 @@
      - Filter stok 4-arah responsif (`Semua`, `🔴 Habis`, `🟡 Menipis ≤5`, `🟢 Aman >5`) yang pas di semua lebar smartphone.
      - Top Mobile AppBar interaktif: Menampilkan nama toko UMKM dinamis, nama kasir aktif, serta badge status koneksi (`OFFLINE` / `CLOUD`).
      - Settings Dialog Multi-Tab & Dark/Bright Mode: TabBar scrollable (`isScrollable: true`) dalam pill capsule container dengan ikon taktil (`Profil UMKM`, `Tema / Tampilan`, `Mode Server`, `Data & Backup`, `Lisensi`), quick theme toggle button di header dialog, serta tab visual kartu taktil Mode Terang (Bright) dan Mode Gelap (Dark) dengan auto-persist `SharedPreferences`.
+     - Multi-Tenant Cloud & LAN Store Account Hub: Integrasi `AuthService` dan JWT Bearer injection otomatis pada `Dio` client, dukungan multi-toko (Toko Demo 1 & Toko Demo 2) untuk pengujian sinkronisasi multi-perangkat real-time tanpa data bercampur.
      - Smart Inventory Input Form: Auto thousand-separator formatting Rupiah (`ThousandsSeparatorInputFormatter`), default/placeholder `0`, serta validasi field wajib (`*`).
      - Tombol tambah compact squircle icon button tanpa redundansi.
   8. **Windows Single-File Installer (`.exe`)**:

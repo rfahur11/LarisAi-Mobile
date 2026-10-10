@@ -7,6 +7,7 @@ import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/auth_service.dart';
 import '../services/export_service.dart';
 import '../services/license_service.dart';
 import '../services/store_profile_service.dart';
@@ -32,6 +33,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   late TextEditingController _storePhoneController;
   late TextEditingController _receiptFooterController;
 
+  late TextEditingController _authEmailController;
+  late TextEditingController _authPasswordController;
+
   LicenseInfo? _licenseInfo;
   bool _isLoadingLicense = true;
 
@@ -43,6 +47,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     _posController = TextEditingController(text: ApiConstants.posBaseUrl);
     _aiController = TextEditingController(text: ApiConstants.aiBaseUrl);
     _licenseController = TextEditingController();
+
+    _authEmailController = TextEditingController(text: AuthService.instance.email ?? 'admin@larisai.com');
+    _authPasswordController = TextEditingController(text: 'admin123');
 
     final profile = StoreProfileService.instance.profile;
     _storeNameController = TextEditingController(text: profile.storeName);
@@ -130,6 +137,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     _storeAddressController.dispose();
     _storePhoneController.dispose();
     _receiptFooterController.dispose();
+    _authEmailController.dispose();
+    _authPasswordController.dispose();
     super.dispose();
   }
 
@@ -783,6 +792,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             badgeColor: Colors.orange.shade800,
             accentColor: Colors.orange.shade800,
           ),
+          if (_selectedMode != ConnectionMode.offline) ...[
+            _buildStoreAccountSection(),
+          ],
           const SizedBox(height: 10),
           GestureDetector(
             onTap: () => setState(() => _showAdvanced = !_showAdvanced),
@@ -888,6 +900,227 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         ],
       ),
     );
+  }
+
+  Widget _buildStoreAccountSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final auth = AuthService.instance;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hub_rounded,
+                size: 16,
+                color: auth.isLoggedIn ? Colors.green.shade600 : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Akun Toko Cloud / Hub (Multi-Tenant)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (auth.isLoggedIn ? Colors.green : Colors.amber).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  auth.isLoggedIn ? 'ONLINE' : 'OFFLINE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: auth.isLoggedIn ? Colors.green.shade700 : Colors.amber.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (auth.isLoggedIn) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${auth.storeName} (${auth.storeId})',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                          ),
+                        ),
+                        Text(
+                          'Login: ${auth.email}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await auth.logout();
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('Keluar', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Hubungkan akun toko untuk sinkronisasi katalog dan transaksi multi-perangkat.',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _authEmailController,
+                    style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                    decoration: InputDecoration(
+                      hintText: 'Email Toko',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _authPasswordController,
+                    obscureText: true,
+                    style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                    decoration: InputDecoration(
+                      hintText: 'Password',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _handleLogin(
+                  _authEmailController.text.trim(),
+                  _authPasswordController.text.trim(),
+                ),
+                icon: const Icon(Icons.login_rounded, size: 14),
+                label: const Text('Hubungkan Akun Toko', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            '⚡ Uji Coba Multi-Tenant Cepat (Demo Mode):',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => _handleLogin('admin@larisai.com', 'admin123'),
+                  icon: const Icon(Icons.store_rounded, size: 13, color: AppColors.primary),
+                  label: const Text('Toko Demo 1 (Berkah)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => _handleLogin('toko2@larisai.com', 'admin123'),
+                  icon: const Icon(Icons.storefront_rounded, size: 13, color: Colors.orange),
+                  label: const Text('Toko Demo 2 (Sejahtera)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleLogin(String email, String password) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final posProv = Provider.of<PosProvider>(context, listen: false);
+
+    final success = await AuthService.instance.login(email: email, password: password);
+    if (!mounted) return;
+
+    setState(() {});
+    if (success) {
+      await posProv.loadProducts();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('✅ Berhasil terhubung ke ${AuthService.instance.storeName}!'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('❌ Gagal login toko. Periksa koneksi internet / server.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildExportTab() {
