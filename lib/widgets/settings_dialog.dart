@@ -33,8 +33,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   late TextEditingController _storePhoneController;
   late TextEditingController _receiptFooterController;
 
-  late TextEditingController _authEmailController;
-  late TextEditingController _authPasswordController;
+  final TextEditingController _authEmailController = TextEditingController(text: 'admin@larisai.com');
+  final TextEditingController _authPasswordController = TextEditingController(text: 'admin123');
 
   LicenseInfo? _licenseInfo;
   bool _isLoadingLicense = true;
@@ -48,8 +48,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     _aiController = TextEditingController(text: ApiConstants.aiBaseUrl);
     _licenseController = TextEditingController();
 
-    _authEmailController = TextEditingController(text: AuthService.instance.email ?? 'admin@larisai.com');
-    _authPasswordController = TextEditingController(text: 'admin123');
+    if (AuthService.instance.email != null && AuthService.instance.email!.isNotEmpty) {
+      _authEmailController.text = AuthService.instance.email!;
+    }
 
     final profile = StoreProfileService.instance.profile;
     _storeNameController = TextEditingController(text: profile.storeName);

@@ -155,4 +155,14 @@ adb reverse tcp:8001 tcp:8001
 # 3. Jalankan Aplikasi Mobile (Hot Reload aktif dengan menekan 'r')
 cd d:\porto\larisAi\LarisAi-Mobile
 flutter run
+
+# 4. Jalankan Aplikasi di Desktop Windows (Mode Native PC POS)
+$env:PUB_CACHE = "D:\flutter_pub_cache"
+flutter run -d windows
+
+# 5. Build Installer Windows Setup EXE & Portable ZIP Otomatis
+.\scripts\build_windows_installer.ps1
+# Output: build\dist\LarisAI_Kasir_Windows_Setup_v1.0.0.exe (~14.7 MB)
+#         build\dist\LarisAI_Windows_x64_Portable_v1.0.0.zip (~17.3 MB)
 ```
+
