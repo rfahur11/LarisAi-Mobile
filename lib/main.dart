@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/pos_provider.dart';
@@ -11,6 +13,13 @@ import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SQLite FFI engine on Desktop platforms (Windows, Linux, macOS)
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   await ApiConstants.loadSavedUrls();
   await StoreProfileService.instance.init();
   await AuthService.instance.init();

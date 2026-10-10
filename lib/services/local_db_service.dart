@@ -1,4 +1,6 @@
-import 'dart:io' show Platform;
+import 'dart:async' show Completer;
+import 'dart:io' show Platform, Directory;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show sqfliteFfiInit, databaseFactoryFfi;
 import 'package:path/path.dart' as p;
@@ -10,23 +12,45 @@ import '../models/analytics_model.dart';
 class LocalDbService {
   static final LocalDbService instance = LocalDbService._init();
   static Database? _database;
+  static Completer<Database>? _dbOpenCompleter;
 
   LocalDbService._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('larisai_offline.db');
-    return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
+    if (_dbOpenCompleter != null) return _dbOpenCompleter!.future;
+
+    _dbOpenCompleter = Completer<Database>();
+    try {
+      _database = await _initDB('larisai_offline.db');
+      _dbOpenCompleter!.complete(_database!);
+      return _database!;
+    } catch (e, stack) {
+      _dbOpenCompleter!.completeError(e, stack);
+      _dbOpenCompleter = null;
+      rethrow;
+    }
   }
 
   Future<Database> _initDB(String filePath) async {
+    String dbDirectoryPath;
+
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
+
+      // On Windows Desktop, store database inside AppData/Roaming to guarantee write permissions
+      final appSupportDir = await getApplicationSupportDirectory();
+      dbDirectoryPath = appSupportDir.path;
+      final dir = Directory(dbDirectoryPath);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+    } else {
+      dbDirectoryPath = await getDatabasesPath();
     }
 
-    final dbPath = await getDatabasesPath();
-    final path = p.join(dbPath, filePath);
+    final path = p.join(dbDirectoryPath, filePath);
 
     return await openDatabase(
       path,

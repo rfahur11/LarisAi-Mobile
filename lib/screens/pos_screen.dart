@@ -568,13 +568,17 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                 ),
 
-                // Cart Item List
+                // Scrollable Body: Cart Items + Checkout Panel
                 Expanded(
-                  child: posProvider.cart.isEmpty
-                      ? Center(
-                          child: Container(
-                            margin: const EdgeInsets.all(24),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Cart Item List
+                        if (posProvider.cart.isEmpty)
+                          Container(
+                            margin: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                             decoration: BoxDecoration(
                               color: isDark ? AppColors.darkCard.withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(16),
@@ -618,21 +622,22 @@ class _PosScreenState extends State<PosScreen> {
                                 ),
                               ],
                             ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            itemCount: posProvider.cart.length,
+                            separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
+                            itemBuilder: (ctx, idx) {
+                              final item = posProvider.cart[idx];
+                              return _buildDesktopCartRow(item, posProvider);
+                            },
                           ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          itemCount: posProvider.cart.length,
-                          separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
-                          itemBuilder: (ctx, idx) {
-                            final item = posProvider.cart[idx];
-                            return _buildDesktopCartRow(item, posProvider);
-                          },
-                        ),
-                ),
 
-                // Payment & Checkout Area
-                Container(
+                        // Payment & Checkout Area
+                        Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
@@ -1035,9 +1040,13 @@ class _PosScreenState extends State<PosScreen> {
               ],
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  ),
+],
+),
+);
   }
 
   Widget _buildPaymentPill(String type, String label, bool isSelected, bool isDark) {

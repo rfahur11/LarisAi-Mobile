@@ -71,9 +71,15 @@ class PosProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     _searchQuery = search ?? '';
-    _products = await _apiService.getProducts(search: search);
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _products = await _apiService.getProducts(search: search);
+    } catch (e) {
+      debugPrint('Error loading products: $e');
+      _products = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
     loadSummary();
   }
 

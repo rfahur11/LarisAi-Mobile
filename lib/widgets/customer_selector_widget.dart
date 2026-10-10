@@ -123,15 +123,18 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
             children: [
               const Icon(Icons.person_pin_rounded, size: 18, color: AppColors.primary),
               const SizedBox(width: 6),
-              Text(
-                'Data Pelanggan (CRM)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              Expanded(
+                child: Text(
+                  'Data Pelanggan (CRM)',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               if (_selectedRecord != null || _newNameController.text.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -338,13 +341,17 @@ class _CustomerSelectorWidgetState extends State<CustomerSelectorWidget> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        history.isEmpty ? 'Belum ada data pelanggan tersimpan.' : 'Tidak ada nama yang cocok.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      Flexible(
+                        child: Text(
+                          history.isEmpty ? 'Belum ada data pelanggan tersimpan.' : 'Tidak ada nama yang cocok.',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 4),
                       TextButton(
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 6),
