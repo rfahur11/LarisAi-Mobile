@@ -14,6 +14,9 @@ class CartItem {
   Map<String, dynamic> toCheckoutJson() {
     return {
       'product_id': product.id,
+      'barcode': product.barcode,
+      'name': product.name,
+      'price': product.price,
       'quantity': quantity,
     };
   }

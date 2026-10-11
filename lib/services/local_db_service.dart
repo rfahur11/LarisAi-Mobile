@@ -8,6 +8,7 @@ import '../models/product_model.dart';
 import '../models/transaction_model.dart';
 import '../models/ai_insights_model.dart';
 import '../models/analytics_model.dart';
+import 'image_storage_service.dart';
 
 class LocalDbService {
   static final LocalDbService instance = LocalDbService._init();
@@ -40,8 +41,12 @@ class LocalDbService {
       databaseFactory = databaseFactoryFfi;
 
       // On Windows Desktop, store database inside AppData/Roaming to guarantee write permissions
-      final appSupportDir = await getApplicationSupportDirectory();
-      dbDirectoryPath = appSupportDir.path;
+      try {
+        final appSupportDir = await getApplicationSupportDirectory();
+        dbDirectoryPath = appSupportDir.path;
+      } catch (_) {
+        dbDirectoryPath = Directory.current.path;
+      }
       final dir = Directory(dbDirectoryPath);
       if (!await dir.exists()) {
         await dir.create(recursive: true);
@@ -68,6 +73,23 @@ class LocalDbService {
         try {
           await db.execute("ALTER TABLE transactions ADD COLUMN status TEXT NOT NULL DEFAULT 'COMPLETED'");
         } catch (_) {}
+        try {
+          await db.execute("ALTER TABLE products ADD COLUMN image_path TEXT NOT NULL DEFAULT ''");
+        } catch (_) {}
+        try {
+          await db.execute("UPDATE products SET image_path = 'aqua_600ml.jpg' WHERE (barcode = '8992772111029' OR name LIKE '%Aqua%') AND (image_path = '' OR image_path IS NULL)");
+          await db.execute("UPDATE products SET image_path = 'indomie_goreng.jpg' WHERE (barcode = '8992753112234' OR name LIKE '%Indomie%') AND (image_path = '' OR image_path IS NULL)");
+          await db.execute("UPDATE products SET image_path = 'teh_botol.jpg' WHERE (barcode = '8999999002133' OR name LIKE '%Teh Bot%') AND (image_path = '' OR image_path IS NULL)");
+          await db.execute("UPDATE products SET image_path = 'kopi_kapal_api.jpg' WHERE (barcode = '8998866100124' OR name LIKE '%Kapal Api%') AND (image_path = '' OR image_path IS NULL)");
+        } catch (_) {}
+        try {
+          await db.execute('''
+            DELETE FROM products 
+            WHERE id NOT IN (
+              SELECT MIN(id) FROM products GROUP BY barcode
+            )
+          ''');
+        } catch (_) {}
       },
     );
   }
@@ -93,6 +115,7 @@ class LocalDbService {
         price INTEGER NOT NULL,
         stock INTEGER NOT NULL,
         is_archived INTEGER NOT NULL DEFAULT 0,
+        image_path TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -132,14 +155,14 @@ class LocalDbService {
   Future<void> _seedStarterProducts(DatabaseExecutor db) async {
     final now = DateTime.now().toIso8601String();
     final starterProducts = [
-      {'id': '1', 'barcode': '8992753112234', 'name': 'Indomie Goreng Original', 'category': 'Makanan', 'price': 3500, 'stock': 48, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '2', 'barcode': '8998866100124', 'name': 'Kopi Kapal Api Special Mix', 'category': 'Minuman', 'price': 2000, 'stock': 75, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '3', 'barcode': '8999999002133', 'name': 'Teh Botol Sosro 450ml', 'category': 'Minuman', 'price': 5000, 'stock': 18, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '4', 'barcode': '8991002103321', 'name': 'Minyak Goreng Sania 2L', 'category': 'Sembako', 'price': 36000, 'stock': 4, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '5', 'barcode': '8993175538012', 'name': 'Beras Ramos Super 5kg', 'category': 'Sembako', 'price': 74000, 'stock': 6, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '6', 'barcode': '8996001301014', 'name': 'Gula Pasir Gulaku 1kg', 'category': 'Sembako', 'price': 18500, 'stock': 8, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '7', 'barcode': '8992772111029', 'name': 'Aqua Air Mineral 600ml', 'category': 'Minuman', 'price': 3500, 'stock': 32, 'is_archived': 0, 'created_at': now, 'updated_at': now},
-      {'id': '8', 'barcode': '8991001223019', 'name': 'Susu Ultra Milk Cokelat 250ml', 'category': 'Minuman', 'price': 6500, 'stock': 15, 'is_archived': 0, 'created_at': now, 'updated_at': now},
+      {'id': '1', 'barcode': '8992753112234', 'name': 'Indomie Goreng Original', 'category': 'Makanan', 'price': 3500, 'stock': 48, 'is_archived': 0, 'image_path': 'indomie_goreng.jpg', 'created_at': now, 'updated_at': now},
+      {'id': '2', 'barcode': '8998866100124', 'name': 'Kopi Kapal Api Special Mix', 'category': 'Minuman', 'price': 2000, 'stock': 75, 'is_archived': 0, 'image_path': 'kopi_kapal_api.jpg', 'created_at': now, 'updated_at': now},
+      {'id': '3', 'barcode': '8999999002133', 'name': 'Teh Botol Sosro 450ml', 'category': 'Minuman', 'price': 5000, 'stock': 18, 'is_archived': 0, 'image_path': 'teh_botol.jpg', 'created_at': now, 'updated_at': now},
+      {'id': '4', 'barcode': '8991002103321', 'name': 'Minyak Goreng Sania 2L', 'category': 'Sembako', 'price': 36000, 'stock': 4, 'is_archived': 0, 'image_path': '', 'created_at': now, 'updated_at': now},
+      {'id': '5', 'barcode': '8993175538012', 'name': 'Beras Ramos Super 5kg', 'category': 'Sembako', 'price': 74000, 'stock': 6, 'is_archived': 0, 'image_path': '', 'created_at': now, 'updated_at': now},
+      {'id': '6', 'barcode': '8996001301014', 'name': 'Gula Pasir Gulaku 1kg', 'category': 'Sembako', 'price': 18500, 'stock': 8, 'is_archived': 0, 'image_path': '', 'created_at': now, 'updated_at': now},
+      {'id': '7', 'barcode': '8992772111029', 'name': 'Aqua Air Mineral 600ml', 'category': 'Minuman', 'price': 3500, 'stock': 32, 'is_archived': 0, 'image_path': 'aqua_600ml.jpg', 'created_at': now, 'updated_at': now},
+      {'id': '8', 'barcode': '8991001223019', 'name': 'Susu Ultra Milk Cokelat 250ml', 'category': 'Minuman', 'price': 6500, 'stock': 15, 'is_archived': 0, 'image_path': '', 'created_at': now, 'updated_at': now},
     ];
 
     final batch = db.batch();
@@ -211,10 +234,27 @@ class LocalDbService {
 
   Future<Product> insertProduct(Product product) async {
     final db = await database;
-    final id = product.id.isNotEmpty ? product.id : 'loc_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now().toIso8601String();
 
-    final newProduct = product.copyWith(id: id);
+    // Check if product already exists by ID or by barcode to prevent duplicate rows
+    String id = product.id;
+    if (id.isEmpty && product.barcode.isNotEmpty) {
+      final existing = await db.query(
+        'products',
+        where: 'barcode = ?',
+        whereArgs: [product.barcode],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        id = existing.first['id'].toString();
+      }
+    }
+    if (id.isEmpty) {
+      id = 'loc_${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    final resolvedImg = product.imagePath.trim().isNotEmpty ? product.imagePath.trim() : product.displayImagePath;
+    final newProduct = product.copyWith(id: id, imagePath: resolvedImg);
     await db.insert('products', {
       'id': newProduct.id,
       'barcode': newProduct.barcode,
@@ -222,7 +262,8 @@ class LocalDbService {
       'category': newProduct.category,
       'price': newProduct.price,
       'stock': newProduct.stock,
-      'is_archived': 0,
+      'is_archived': newProduct.isArchived ? 1 : 0,
+      'image_path': newProduct.imagePath,
       'created_at': now,
       'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -240,6 +281,7 @@ class LocalDbService {
         'category': product.category,
         'price': product.price,
         'stock': product.stock,
+        'image_path': product.imagePath,
         'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
@@ -250,6 +292,22 @@ class LocalDbService {
 
   Future<bool> deleteProduct(String id) async {
     final db = await database;
+    try {
+      final existing = await db.query(
+        'products',
+        columns: ['image_path'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        final img = existing.first['image_path']?.toString() ?? '';
+        if (img.isNotEmpty) {
+          await ImageStorageService.instance.deleteProductImage(img);
+        }
+      }
+    } catch (_) {}
+
     final count = await db.delete(
       'products',
       where: 'id = ?',
@@ -284,17 +342,48 @@ class LocalDbService {
     // Calculate total amount & build item objects
     for (var i in items) {
       final pId = i['product_id']?.toString() ?? '';
+      final pBarcode = i['barcode']?.toString() ?? '';
+      final pName = i['name']?.toString() ?? '';
       final qty = (i['quantity'] is num) ? (i['quantity'] as num).toInt() : 1;
       
-      // Fetch product name and price
-      final prodMap = await db.query('products', where: 'id = ?', whereArgs: [pId], limit: 1);
-      final name = prodMap.isNotEmpty ? prodMap.first['name'].toString() : 'Produk Kasir';
-      final price = prodMap.isNotEmpty ? (prodMap.first['price'] as int) : 10000;
+      // Resilient Product Lookup: try ID, then barcode, then pId as barcode, then Name
+      var prodMap = <Map<String, dynamic>>[];
+      if (pId.isNotEmpty) {
+        prodMap = await db.query('products', where: 'id = ?', whereArgs: [pId], limit: 1);
+      }
+      if (prodMap.isEmpty && pBarcode.isNotEmpty) {
+        prodMap = await db.query('products', where: 'barcode = ?', whereArgs: [pBarcode], limit: 1);
+      }
+      if (prodMap.isEmpty && pId.isNotEmpty) {
+        prodMap = await db.query('products', where: 'barcode = ?', whereArgs: [pId], limit: 1);
+      }
+      if (prodMap.isEmpty && pName.isNotEmpty) {
+        prodMap = await db.query(
+          'products',
+          where: 'LOWER(name) = ?',
+          whereArgs: [pName.toLowerCase().trim()],
+          limit: 1,
+        );
+      }
+      if (prodMap.isEmpty && pName.isNotEmpty) {
+        prodMap = await db.query(
+          'products',
+          where: 'LOWER(name) LIKE ?',
+          whereArgs: ['%${pName.toLowerCase().trim()}%'],
+          limit: 1,
+        );
+      }
+
+      final actualId = prodMap.isNotEmpty ? prodMap.first['id'].toString() : pId;
+      final name = prodMap.isNotEmpty ? prodMap.first['name'].toString() : (pName.isNotEmpty ? pName : 'Produk Kasir');
+      final price = prodMap.isNotEmpty 
+          ? (prodMap.first['price'] as int) 
+          : ((i['price'] is num) ? (i['price'] as num).toInt() : 10000);
       final subtotal = price * qty;
       totalAmount += subtotal;
 
       txItems.add(TransactionItem(
-        productId: pId,
+        productId: actualId,
         name: name,
         price: price,
         quantity: qty,
@@ -324,11 +413,13 @@ class LocalDbService {
           'subtotal': item.subtotal,
         });
 
-        // Reduce stock
-        await txn.rawUpdate(
-          'UPDATE products SET stock = MAX(0, stock - ?), updated_at = ? WHERE id = ?',
-          [item.quantity, now.toIso8601String(), item.productId],
-        );
+        // Reduce stock atomically on the exact product record
+        if (item.productId.isNotEmpty) {
+          await txn.rawUpdate(
+            'UPDATE products SET stock = MAX(0, stock - ?), updated_at = ? WHERE id = ?',
+            [item.quantity, now.toIso8601String(), item.productId],
+          );
+        }
       }
     });
 

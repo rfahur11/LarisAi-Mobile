@@ -10,6 +10,7 @@ import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../services/export_service.dart';
 import '../services/license_service.dart';
+import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
 
 class SettingsDialog extends StatefulWidget {
@@ -793,6 +794,53 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             badgeColor: Colors.orange.shade800,
             accentColor: Colors.orange.shade800,
           ),
+          if (_selectedMode == ConnectionMode.wifi) ...[
+            ValueListenableBuilder<bool>(
+              valueListenable: LocalHostServerService.instance.isRunning,
+              builder: (context, running, _) {
+                final url = LocalHostServerService.instance.serverUrl;
+                return Container(
+                  margin: const EdgeInsets.only(top: 2, bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: isDark ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.shade300, width: 0.8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.hub_rounded, size: 16, color: Colors.orange.shade800),
+                          const SizedBox(width: 6),
+                          Text(
+                            running ? '🟢 Server Host Kasir PC Aktif' : '🟠 Server Host LAN',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        running
+                            ? 'Alamat IP Host untuk Kasir HP:\n👉 $url\n\n(Arahkan aplikasi kasir di HP Android ke alamat IP ini)'
+                            : 'Server Host siap diaktifkan di port 8080.',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           if (_selectedMode != ConnectionMode.offline) ...[
             _buildStoreAccountSection(),
           ],
@@ -2295,10 +2343,12 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
                   // Save Connection Mode & URLs
                   await ApiConstants.setMode(_selectedMode);
-                  if (_showAdvanced) {
+                  if (_selectedMode != ConnectionMode.offline && _posController.text.trim().isNotEmpty) {
                     await ApiConstants.setUrls(
                       posUrl: _posController.text.trim(),
-                      aiUrl: _aiController.text.trim(),
+                      aiUrl: _aiController.text.trim().isNotEmpty
+                          ? _aiController.text.trim()
+                          : _posController.text.trim(),
                     );
                   }
 

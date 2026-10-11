@@ -6,6 +6,7 @@ import '../core/utils/currency_formatter.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
 import 'order_history_dialog.dart';
 import 'settings_dialog.dart';
@@ -33,7 +34,10 @@ class DesktopHeader extends StatelessWidget {
     final stockouts = aiProvider.stockouts.length;
 
     return AnimatedBuilder(
-      animation: StoreProfileService.instance,
+      animation: Listenable.merge([
+        StoreProfileService.instance,
+        ApiConstants.modeNotifier,
+      ]),
       builder: (context, _) {
         final profile = StoreProfileService.instance.profile;
 
@@ -152,14 +156,14 @@ class DesktopHeader extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: ApiConstants.currentMode == ConnectionMode.offline
-                        ? (isDark ? const Color(0xFF042F2E) : Colors.teal.shade50)
-                        : (isDark ? const Color(0xFF1E1B4B) : Colors.indigo.shade50),
+                    color: isDark
+                        ? ApiConstants.modeColor.withValues(alpha: 0.25)
+                        : ApiConstants.modeColor.shade50,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: ApiConstants.currentMode == ConnectionMode.offline
-                          ? Colors.teal.shade300
-                          : Colors.indigo.shade300,
+                      color: isDark
+                          ? ApiConstants.modeColor.withValues(alpha: 0.6)
+                          : ApiConstants.modeColor.shade300,
                     ),
                   ),
                   child: Text(
@@ -167,15 +171,61 @@ class DesktopHeader extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: ApiConstants.currentMode == ConnectionMode.offline
-                          ? (isDark ? Colors.teal.shade200 : Colors.teal.shade800)
-                          : (isDark ? Colors.indigo.shade200 : Colors.indigo.shade800),
+                      color: isDark
+                          ? ApiConstants.modeColor.shade200
+                          : ApiConstants.modeColor.shade800,
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
 
-                // Dark / Light Mode Toggle Button
+                // Live LAN Host Server Pill (Auto-shows when host is active)
+                ValueListenableBuilder<bool>(
+                  valueListenable: LocalHostServerService.instance.isRunning,
+                  builder: (context, running, _) {
+                    if (!running) return const SizedBox.shrink();
+                    final url = LocalHostServerService.instance.serverUrl;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF064E3B) : Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark ? Colors.green.shade500 : Colors.green.shade400,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Host LAN: $url',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.green.shade200 : Colors.green.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                    );
+                  },
+                ),
                 IconButton(
                   tooltip: themeProvider.isDarkMode ? 'Mode Terang' : 'Mode Malam',
                   style: IconButton.styleFrom(

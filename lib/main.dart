@@ -8,16 +8,18 @@ import 'providers/pos_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/auth_service.dart';
+import 'services/local_host_server_service.dart';
 import 'services/store_profile_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize SQLite FFI engine on Desktop platforms (Windows, Linux, macOS)
+  // Initialize SQLite FFI engine and start Embedded LAN Host on Desktop
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    await LocalHostServerService.instance.startServer();
   }
 
   await ApiConstants.loadSavedUrls();

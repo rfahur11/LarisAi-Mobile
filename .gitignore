@@ -48,3 +48,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local databases and temporary captures
+*.db
+test_device_capture.png

@@ -22,6 +22,16 @@ class TransactionItem {
       subtotal: (json['subtotal'] is num) ? (json['subtotal'] as num).toInt() : 0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'product_id': productId,
+      'name': name,
+      'price': price,
+      'quantity': quantity,
+      'subtotal': subtotal,
+    };
+  }
 }
 
 class Transaction {
@@ -65,5 +75,18 @@ class Transaction {
           : DateTime.now(),
       items: items,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'invoice_no': invoiceNo,
+      'customer_id': customerId,
+      'total_amount': totalAmount,
+      'payment_type': paymentType,
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'items': items.map((i) => i.toJson()).toList(),
+    };
   }
 }

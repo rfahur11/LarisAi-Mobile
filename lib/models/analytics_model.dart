@@ -19,6 +19,15 @@ class PaymentBreakdown {
       percentage: (json['percentage'] is num) ? (json['percentage'] as num).toDouble() : 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'payment_type': paymentType,
+      'total_amount': totalAmount,
+      'count': count,
+      'percentage': percentage,
+    };
+  }
 }
 
 class DailySale {
@@ -38,6 +47,14 @@ class DailySale {
       totalAmount: (json['total_amount'] is num) ? (json['total_amount'] as num).toInt() : 0,
       orderCount: (json['order_count'] is num) ? (json['order_count'] as num).toInt() : 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'total_amount': totalAmount,
+      'order_count': orderCount,
+    };
   }
 }
 
@@ -67,5 +84,15 @@ class AnalyticsSummary {
       paymentMethods: rawPayments.map((p) => PaymentBreakdown.fromJson(p as Map<String, dynamic>)).toList(),
       dailySales: rawDaily.map((d) => DailySale.fromJson(d as Map<String, dynamic>)).toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'total_revenue': totalRevenue,
+      'total_orders': totalOrders,
+      'average_order_value': averageOrderValue,
+      'payment_methods': paymentMethods.map((p) => p.toJson()).toList(),
+      'daily_sales': dailySales.map((d) => d.toJson()).toList(),
+    };
   }
 }

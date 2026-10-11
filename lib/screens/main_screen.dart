@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
+import '../services/local_host_server_service.dart';
 import '../widgets/desktop_header.dart';
 import 'pos_screen.dart';
 import 'inventory_screen.dart';
@@ -18,6 +20,26 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  StreamSubscription<String>? _lanSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to LAN server events (e.g. mobile cashier checked out) to refresh Desktop UI in real-time
+    _lanSub = LocalHostServerService.instance.onDataChanged.listen((_) {
+      if (mounted) {
+        final posProvider = Provider.of<PosProvider>(context, listen: false);
+        posProvider.loadProducts();
+        posProvider.loadSummary();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _lanSub?.cancel();
+    super.dispose();
+  }
 
   final List<Widget> _screens = const [
     PosScreen(),

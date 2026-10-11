@@ -186,4 +186,63 @@ flutter run -d windows
    - **Device B** tetap aktif dalam mode **`CLOUD`**.
    - Transaksi kasir offline di **Device A** dan perhitungan AI burn-rate forecasting berjalan mandiri tanpa internet dan tanpa saling mengganggu.
 
+---
+
+## 🛠️ 7. RCA & Fix: Mobile Header Badge & Sinkronisasi LAN Multi-Device
+
+> **Log Dokumentasi Obsidian**: `d:\porto\knowledge-base\02-Bug-RCA-Logs\2026-10-10-lan-badge-and-host-sync.md`
+
+### Perbaikan yang Diimplementasikan:
+1. **Header Badge Reaktif & Dinamis (`pos_screen.dart` & `desktop_header.dart`)**:
+   - Menghapus ternary hardcoded `isOffline ? 'OFFLINE' : 'CLOUD'`.
+   - Mengintegrasikan `ApiConstants.modeNotifier`, `ApiConstants.modeBadgeText`, dan `ApiConstants.modeColor`.
+   - Status badge kini menampilkan secara akurat dan instan:
+     - 📦 **`OFFLINE`** (Teal) untuk Mode Lifetime SQLite lokal.
+     - ☁️ **`CLOUD`** (Indigo) untuk Mode Cloud SaaS HF Spaces + MongoDB Atlas.
+     - 📶 **`LAN`** (Orange) untuk Mode Wi-Fi LAN lokal kantor / toko.
+     - 🔌 **`DEV USB`** (Blue) untuk Mode ADB reverse USB debugging.
+2. **Persistence Endpoint Kustom (`settings_dialog.dart`)**:
+   - Kustomisasi URL backend POS/AI kini tersimpan secara konsisten tanpa tergantung status accordion dropdown.
+
+---
+
+## 🧪 8. Multi-Mode Testing Protocol & Autonomous Skill Suite (`larisai-testing-protocol`)
+
+- **Skill File**: `C:\Users\black\.gemini\config\skills\larisai-testing-protocol\SKILL.md`
+- **Cheatsheet Vault**: `d:\porto\knowledge-base\03-Snippets-Cheatsheets\larisai-testing-guide.md`
+- **Helper Scripts**:
+  - `d:\porto\larisAi\scripts\verify_lan_host.ps1`
+  - `d:\porto\larisAi\scripts\capture_dual_screens.ps1`
+- **Fast Execution**:
+  ```powershell
+  # Probe Host PC Port 8080 & REST endpoints
+  powershell -ExecutionPolicy Bypass -File d:\porto\larisAi\scripts\verify_lan_host.ps1
+
+## 🛠️ 9. RCA & Fix: Pengurangan Stok Checkout Mode LAN PC-HP & Self-Healing
+
+- **Log Dokumentasi Obsidian**: `d:\porto\knowledge-base\02-Bug-RCA-Logs\2026-10-11-lan-checkout-stock-reduction.md`
+- **Root Cause**: `Product.toJson()` kehilangan field `id`, menyebabkan request checkout HP mengirim `product_id: ""`. Akibatnya `UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ''` di SQLite PC gagal mengupdate produk asli (stok PC tetap), sedangkan HP melakukan in-memory reduction lokal. Selain itu, client & PC sebelumnya masih mengeksekusi binary lama (pre-fix 07:28 AM).
+- **Solusi Permanen & Self-Healing**:
+  1. `Product.toJson()`: Menyertakan `id` dan `is_archived`.
+  2. `CartItem.toCheckoutJson()`: Menyertakan `barcode`, `name`, `price`, dan `quantity` sebagai rich payload.
+  3. `LocalDbService.insertTransaction()`: Resilient lookup 4-tier (ID ➔ Barcode ➔ pId as Barcode ➔ Name case-insensitive & LIKE), menjamin stok pada `actualId` di SQLite PASTI berkurang meskipun client lama mengirim request tanpa ID.
+  4. `LocalDbService.insertProduct()`: Cek eksistensi barcode sebelum generate ID baru untuk mencegah duplikasi.
+  5. SQLite `onOpen`: Menjalankan query deduplikasi otomatis untuk membersihkan data lama.
+  6. Unit Test: `test/lan_checkout_stock_sync_test.dart` (2 Test Cases Passed 100%: Normal Flow & Self-Healing Name Fallback).
+  7. Binary Distribution: Windows Release EXE & Portable ZIP terupdate, shortcut desktop pengguna diarahkan ke build Release, APK Android rilis terbaru (83.1 MB) dipush ke HP (`/sdcard/Download/LarisAI_Mobile_v1.0.0.apk`).
+
+---
+
+## 🎨 10. RCA & Fix: Mobile Inventory Screen Overflow & Card Overlap
+
+- **Log Dokumentasi Obsidian**: `d:\porto\knowledge-base\02-Bug-RCA-Logs\2026-10-11-mobile-inventory-overflow-fix.md`
+- **Gejala**: Pada smartphone, 3 kartu header ringkasan terhimpit horizontal sehingga teks terpotong (`Total Pro...`, `Nilai Ase...`), dan nomor barcode 13 digit mendorong chip kategori tumpang tindih langsung ke badge stok.
+- **Solusi**:
+  1. `_buildMobileMetricCard` dengan `SingleChildScrollView(scrollDirection: Axis.horizontal)` pada layar mobile (< 700px), menampilkan seluruh label dan nominal angka secara utuh dan dapat digeser mulus.
+  2. Bungkus `product.barcode` dan `product.category` dengan `Flexible` dan `TextOverflow.ellipsis`, serta tambahkan `SizedBox(width: 8)` pemisah aman dari badge stok.
+  3. Verifikasi live screenshot via ADB pada fisik OPPO (720x1600) membuktikan tampilan 100% rapi dan bebas overlap.
+
+
+
+
 

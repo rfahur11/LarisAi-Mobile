@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ConnectionMode { offline, cloud, usb, wifi }
@@ -27,6 +28,9 @@ class ApiConstants {
   static String aiBaseUrl = usbAiBaseUrl;
   static ConnectionMode currentMode = ConnectionMode.offline;
 
+  /// Reactive notifier to immediately trigger header badge rebuilds
+  static final ValueNotifier<ConnectionMode> modeNotifier = ValueNotifier<ConnectionMode>(ConnectionMode.offline);
+
   static bool get isOfflineMode => currentMode == ConnectionMode.offline;
 
   static Future<void> loadSavedUrls() async {
@@ -36,6 +40,7 @@ class ApiConstants {
       (e) => e.name == modeStr,
       orElse: () => ConnectionMode.offline,
     );
+    modeNotifier.value = currentMode;
     _applyMode(currentMode);
 
     // Override with custom URLs if manually set
@@ -67,6 +72,7 @@ class ApiConstants {
   static Future<void> setMode(ConnectionMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     currentMode = mode;
+    modeNotifier.value = mode;
     _applyMode(mode);
     await prefs.setString(keyConnectionMode, mode.name);
     await prefs.setString(keyPosBaseUrl, posBaseUrl);
@@ -91,6 +97,32 @@ class ApiConstants {
         return '🔌 USB (adb reverse)';
       case ConnectionMode.wifi:
         return '📶 Wi-Fi LAN';
+    }
+  }
+
+  static String get modeBadgeText {
+    switch (currentMode) {
+      case ConnectionMode.offline:
+        return 'OFFLINE';
+      case ConnectionMode.cloud:
+        return 'CLOUD';
+      case ConnectionMode.usb:
+        return 'DEV USB';
+      case ConnectionMode.wifi:
+        return 'LAN';
+    }
+  }
+
+  static MaterialColor get modeColor {
+    switch (currentMode) {
+      case ConnectionMode.offline:
+        return Colors.teal;
+      case ConnectionMode.cloud:
+        return Colors.indigo;
+      case ConnectionMode.usb:
+        return Colors.blue;
+      case ConnectionMode.wifi:
+        return Colors.orange;
     }
   }
 }

@@ -6,6 +6,8 @@ import '../core/utils/currency_formatter.dart';
 import '../models/product_model.dart';
 import '../providers/pos_provider.dart';
 import '../widgets/settings_dialog.dart';
+import '../services/image_storage_service.dart';
+import '../widgets/product_image_thumbnail.dart';
 import 'scanner_screen.dart';
 
 enum StockFilterType { all, outOfStock, lowStock, inStock, custom }
@@ -40,6 +42,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final priceController = TextEditingController();
     final stockController = TextEditingController(text: '0');
     String category = 'Makanan';
+    String? selectedImagePath;
     String? nameError;
     String? priceError;
     String? stockError;
@@ -69,6 +72,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Product Image Picker
+                _buildImagePickerSection(
+                  context: context,
+                  setModalState: setModalState,
+                  imagePath: selectedImagePath,
+                  onImageChanged: (path) => selectedImagePath = path,
+                  isDark: isDark,
+                ),
+
                 // Barcode input with scan button
                 Text('Barcode / SKU (Opsional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
@@ -298,6 +310,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   category: category,
                   price: price,
                   stock: stock!,
+                  imagePath: selectedImagePath ?? '',
                 );
 
                 final posProv = Provider.of<PosProvider>(context, listen: false);
@@ -328,6 +341,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     String? nameError;
     String? priceError;
     String? stockError;
+    String? selectedImagePath = product.displayImagePath.isNotEmpty ? product.displayImagePath : product.imagePath;
 
     showDialog(
       context: context,
@@ -354,6 +368,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Product Image Picker
+                _buildImagePickerSection(
+                  context: context,
+                  setModalState: setModalState,
+                  imagePath: selectedImagePath,
+                  productName: product.name,
+                  barcode: product.barcode,
+                  onImageChanged: (path) => selectedImagePath = path,
+                  isDark: isDark,
+                ),
+
                 Text('Barcode / SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain)),
                 const SizedBox(height: 6),
                 Row(
@@ -568,12 +593,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   return;
                 }
 
+                if (product.imagePath.isNotEmpty && product.imagePath != selectedImagePath) {
+                  ImageStorageService.instance.deleteProductImage(product.imagePath);
+                }
+
                 final updated = product.copyWith(
                   barcode: barcode.isNotEmpty ? barcode : product.barcode,
                   name: name,
                   category: category,
                   price: price,
                   stock: stock!,
+                  imagePath: selectedImagePath ?? '',
                 );
 
                 final posProv = Provider.of<PosProvider>(context, listen: false);
@@ -645,6 +675,330 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: const Text('Hapus Produk'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImagePickerSection({
+    required BuildContext context,
+    required void Function(void Function()) setModalState,
+    required String? imagePath,
+    String? productName,
+    String? barcode,
+    required ValueChanged<String?> onImageChanged,
+    required bool isDark,
+  }) {
+    final hasImage = imagePath != null && imagePath.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Foto Produk (Opsional)',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (hasImage)
+            Container(
+              constraints: const BoxConstraints(minHeight: 90),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ProductImageThumbnail(
+                      imagePath: imagePath,
+                      productName: productName,
+                      barcode: barcode,
+                      width: 74,
+                      height: 74,
+                      borderRadius: 10,
+                      fallback: Container(
+                        width: 74,
+                        height: 74,
+                        color: isDark ? AppColors.darkCard : Colors.grey.shade200,
+                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            side: BorderSide(color: isDark ? AppColors.primaryHover : AppColors.primary),
+                          ),
+                          onPressed: () async {
+                            final newPath = await ImageStorageService.instance.pickAndSaveProductImage('img');
+                            if (newPath != null) {
+                              setModalState(() => onImageChanged(newPath));
+                            }
+                          },
+                          icon: const Icon(Icons.photo_camera_rounded, size: 14),
+                          label: const Text('Ganti Foto', style: TextStyle(fontSize: 11)),
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            foregroundColor: AppColors.danger,
+                          ),
+                          onPressed: () {
+                            setModalState(() => onImageChanged(''));
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                          label: const Text('Hapus Foto', style: TextStyle(fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            InkWell(
+              onTap: () async {
+                final newPath = await ImageStorageService.instance.pickAndSaveProductImage('new');
+                if (newPath != null) {
+                  setModalState(() => onImageChanged(newPath));
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: (isDark ? AppColors.primaryHover : AppColors.primary).withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.add_a_photo_rounded,
+                        size: 18,
+                        color: isDark ? AppColors.primaryHover : AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Pilih Foto dari Galeri / File',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// High-resolution preview dialog with hero animation and product details
+  void _showProductImagePreviewModal(BuildContext context, Product product) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 360),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.border,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 10, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        product.category,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: Icon(Icons.close_rounded, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Image Preview Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 220,
+                    color: isDark ? AppColors.darkCard : Colors.grey.shade100,
+                    child: Hero(
+                      tag: 'product_img_${product.id}',
+                      child: ProductImageThumbnail(
+                        imagePath: product.displayImagePath,
+                        productName: product.name,
+                        barcode: product.barcode,
+                        width: double.infinity,
+                        height: 220,
+                        borderRadius: 16,
+                        fit: BoxFit.contain,
+                        fallback: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inventory_2_rounded, size: 56, color: isDark ? AppColors.darkTextMuted : Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Belum ada foto produk',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Product Info & Quick Actions
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Barcode: ${product.barcode.isNotEmpty ? product.barcode : '-'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          CurrencyFormatter.format(product.price),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: product.stock > 5
+                                ? (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)
+                                : (isDark ? const Color(0xFF451A03) : Colors.amber.shade50),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Stok: ${product.stock} pcs',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: product.stock > 5 ? AppColors.primaryDark : AppColors.warning,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showEditProductDialog(context, product);
+                        },
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        label: const Text('Edit Produk / Ganti Foto', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -983,40 +1337,75 @@ class _InventoryScreenState extends State<InventoryScreen> {
         children: [
           // 1. Overview Metric Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12 : 16,
+              vertical: isMobile ? 8 : 12,
+            ),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : Colors.white,
               border: Border(
                 bottom: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
               ),
             ),
-            child: Row(
-              children: [
-                _buildHeaderMiniStat(
-                  label: 'Total Produk',
-                  value: '${allProducts.length} Item',
-                  icon: Icons.inventory_2_outlined,
-                  color: Colors.blue,
-                  isDark: isDark,
-                ),
-                _buildVerticalDivider(isDark),
-                _buildHeaderMiniStat(
-                  label: 'Total Stok Fisik',
-                  value: '$totalStockUnits Unit',
-                  icon: Icons.layers_outlined,
-                  color: AppColors.primary,
-                  isDark: isDark,
-                ),
-                _buildVerticalDivider(isDark),
-                _buildHeaderMiniStat(
-                  label: 'Nilai Aset Stok',
-                  value: CurrencyFormatter.format(totalInventoryValue),
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: Colors.purple,
-                  isDark: isDark,
-                ),
-              ],
-            ),
+            child: isMobile
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        _buildMobileMetricCard(
+                          label: 'Total Produk',
+                          value: '${allProducts.length} Item',
+                          icon: Icons.inventory_2_outlined,
+                          color: Colors.blue,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildMobileMetricCard(
+                          label: 'Total Stok Fisik',
+                          value: '$totalStockUnits Unit',
+                          icon: Icons.layers_outlined,
+                          color: AppColors.primary,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildMobileMetricCard(
+                          label: 'Nilai Aset Stok',
+                          value: CurrencyFormatter.format(totalInventoryValue),
+                          icon: Icons.account_balance_wallet_outlined,
+                          color: Colors.purple,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  )
+                : Row(
+                    children: [
+                      _buildHeaderMiniStat(
+                        label: 'Total Produk',
+                        value: '${allProducts.length} Item',
+                        icon: Icons.inventory_2_outlined,
+                        color: Colors.blue,
+                        isDark: isDark,
+                      ),
+                      _buildVerticalDivider(isDark),
+                      _buildHeaderMiniStat(
+                        label: 'Total Stok Fisik',
+                        value: '$totalStockUnits Unit',
+                        icon: Icons.layers_outlined,
+                        color: AppColors.primary,
+                        isDark: isDark,
+                      ),
+                      _buildVerticalDivider(isDark),
+                      _buildHeaderMiniStat(
+                        label: 'Nilai Aset Stok',
+                        value: CurrencyFormatter.format(totalInventoryValue),
+                        icon: Icons.account_balance_wallet_outlined,
+                        color: Colors.purple,
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
           ),
 
           // 2. Search Box, Quick Scan & Custom Filter
@@ -1302,26 +1691,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 child: Row(
                                   children: [
-                                    // Icon Box
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: isOutOfStock
-                                            ? (isDark ? const Color(0xFF450A0A) : Colors.red.shade50)
-                                            : (isLowStock
-                                                ? (isDark ? const Color(0xFF451A03) : Colors.amber.shade50)
-                                                : (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Icon(
-                                        isOutOfStock
-                                            ? Icons.remove_shopping_cart_rounded
-                                            : (isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_rounded),
-                                        color: isOutOfStock
-                                            ? AppColors.danger
-                                            : (isLowStock ? AppColors.warning : AppColors.primaryDark),
-                                        size: 22,
+                                    // Product Image Thumbnail with Tap-to-Preview Modal & Hero Zoom
+                                    InkResponse(
+                                      onTap: () => _showProductImagePreviewModal(context, product),
+                                      radius: 30,
+                                      child: Hero(
+                                        tag: 'product_img_${product.id}',
+                                        child: ProductImageThumbnail(
+                                          imagePath: product.displayImagePath,
+                                          productName: product.name,
+                                          barcode: product.barcode,
+                                          width: 48,
+                                          height: 48,
+                                          borderRadius: 12,
+                                          fallback: Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: isOutOfStock
+                                                  ? (isDark ? const Color(0xFF450A0A) : Colors.red.shade50)
+                                                  : (isLowStock
+                                                      ? (isDark ? const Color(0xFF451A03) : Colors.amber.shade50)
+                                                      : (isDark ? const Color(0xFF042F2E) : AppColors.primaryLight)),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(
+                                              isOutOfStock
+                                                  ? Icons.remove_shopping_cart_rounded
+                                                  : (isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_rounded),
+                                              color: isOutOfStock
+                                                  ? AppColors.danger
+                                                  : (isLowStock ? AppColors.warning : AppColors.primaryDark),
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -1346,23 +1750,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             children: [
                                               Icon(Icons.qr_code, size: 12, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                                               const SizedBox(width: 4),
-                                              Text(
-                                                product.barcode,
-                                                style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                decoration: BoxDecoration(
-                                                  color: isDark ? AppColors.darkCard : Colors.grey.shade100,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
+                                              Flexible(
                                                 child: Text(
-                                                  product.category,
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                                  product.barcode,
+                                                  style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: isDark ? AppColors.darkCard : Colors.grey.shade100,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    product.category,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                               ),
@@ -1376,17 +1788,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         ],
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
 
                                     // Stock Badge
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                                       decoration: BoxDecoration(
                                         color: isOutOfStock
                                             ? Colors.red.withValues(alpha: 0.15)
                                             : (isLowStock
                                                 ? Colors.amber.withValues(alpha: 0.2)
                                                 : Colors.teal.withValues(alpha: 0.15)),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(7),
                                         border: Border.all(
                                           color: isOutOfStock
                                               ? AppColors.danger
@@ -1394,17 +1807,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         ),
                                       ),
                                       child: Text(
-                                        isOutOfStock ? 'HABIS (0)' : '${product.stock} pcs',
+                                        isOutOfStock ? 'HABIS' : '${product.stock} pcs',
                                         style: TextStyle(
-                                          fontSize: 11.5,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: isOutOfStock
                                               ? AppColors.danger
                                               : (isLowStock ? AppColors.warning : AppColors.success),
                                         ),
+                                        maxLines: 1,
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
+                                    const SizedBox(width: 2),
 
                                     // Popup Action Menu
                                     PopupMenuButton<String>(
@@ -1466,6 +1880,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final isSelected = _selectedStockFilter == filterType;
     return Expanded(
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           setState(() {
             _selectedStockFilter = filterType;
@@ -1543,6 +1958,61 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMetricCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

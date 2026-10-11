@@ -12,6 +12,8 @@ import '../widgets/receipt_dialog.dart';
 import '../widgets/settings_dialog.dart';
 import '../widgets/customer_selector_widget.dart';
 import '../services/store_profile_service.dart';
+import '../services/image_storage_service.dart';
+import '../widgets/product_image_thumbnail.dart';
 import 'scanner_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -88,6 +90,7 @@ class _PosScreenState extends State<PosScreen> {
     final priceController = TextEditingController();
     final stockController = TextEditingController();
     String category = 'Makanan';
+    String? selectedImagePath;
 
     showDialog(
       context: context,
@@ -106,6 +109,47 @@ class _PosScreenState extends State<PosScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Image picker tile
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: selectedImagePath != null && selectedImagePath!.isNotEmpty
+                      ? Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: ProductImageThumbnail(
+                                imagePath: selectedImagePath!,
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: AppColors.danger),
+                                onPressed: () => setModalState(() => selectedImagePath = null),
+                                icon: const Icon(Icons.delete_outline, size: 16),
+                                label: const Text('Hapus Foto', style: TextStyle(fontSize: 12)),
+                              ),
+                            ),
+                          ],
+                        )
+                      : OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            side: const BorderSide(color: AppColors.primary),
+                          ),
+                          onPressed: () async {
+                            final path = await ImageStorageService.instance.pickAndSaveProductImage('quick');
+                            if (path != null) {
+                              setModalState(() => selectedImagePath = path);
+                            }
+                          },
+                          icon: const Icon(Icons.add_a_photo_outlined, size: 16),
+                          label: const Text('Pilih Foto Produk (Opsional)', style: TextStyle(fontSize: 12)),
+                        ),
+                ),
                 const Text('Barcode / SKU:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 TextField(
@@ -169,7 +213,7 @@ class _PosScreenState extends State<PosScreen> {
                 const Text('Kategori:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String>(
-                  value: category,
+                  initialValue: category,
                   decoration: const InputDecoration(
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
@@ -209,6 +253,7 @@ class _PosScreenState extends State<PosScreen> {
                   category: category,
                   price: price,
                   stock: stock,
+                  imagePath: selectedImagePath ?? '',
                 );
 
                 final posProvider = Provider.of<PosProvider>(context, listen: false);
@@ -1261,12 +1306,16 @@ class _PosScreenState extends State<PosScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: AnimatedBuilder(
-                animation: StoreProfileService.instance,
+                animation: Listenable.merge([
+                  StoreProfileService.instance,
+                  ApiConstants.modeNotifier,
+                ]),
                 builder: (context, _) {
                   final profile = StoreProfileService.instance.profile;
                   final storeName = profile.storeName.isNotEmpty ? profile.storeName : 'LarisAI Kasir';
                   final cashier = profile.ownerName.isNotEmpty ? profile.ownerName : 'Kasir 01';
-                  final isOffline = ApiConstants.currentMode == ConnectionMode.offline;
+                  final badgeText = ApiConstants.modeBadgeText;
+                  final badgeColor = ApiConstants.modeColor;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1299,23 +1348,23 @@ class _PosScreenState extends State<PosScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: isOffline
-                                  ? (isDark ? const Color(0xFF042F2E) : Colors.teal.shade50)
-                                  : (isDark ? const Color(0xFF1E1B4B) : Colors.indigo.shade50),
+                              color: isDark
+                                  ? badgeColor.withValues(alpha: 0.25)
+                                  : badgeColor.shade50,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: isOffline ? Colors.teal.shade300 : Colors.indigo.shade300,
+                                color: isDark
+                                    ? badgeColor.withValues(alpha: 0.6)
+                                    : badgeColor.shade300,
                                 width: 0.8,
                               ),
                             ),
                             child: Text(
-                              isOffline ? 'OFFLINE' : 'CLOUD',
+                              badgeText,
                               style: TextStyle(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.bold,
-                                color: isOffline
-                                    ? (isDark ? Colors.teal.shade300 : Colors.teal.shade800)
-                                    : (isDark ? Colors.indigo.shade300 : Colors.indigo.shade800),
+                                color: isDark ? badgeColor.shade200 : badgeColor.shade800,
                               ),
                             ),
                           ),
@@ -1332,11 +1381,12 @@ class _PosScreenState extends State<PosScreen> {
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Pengaturan',
-            onPressed: () {
-              showDialog(
+            onPressed: () async {
+              await showDialog(
                 context: context,
                 builder: (_) => const SettingsDialog(),
               );
+              if (mounted) setState(() {});
             },
           ),
           Padding(
@@ -1669,7 +1719,23 @@ class _PosScreenState extends State<PosScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 10),
+                if (product.hasDisplayImage) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ProductImageThumbnail(
+                      imagePath: product.displayImagePath,
+                      productName: product.name,
+                      barcode: product.barcode,
+                      width: double.infinity,
+                      height: 54,
+                      borderRadius: 8,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 8),
 
                 // Product Name (Bold, High Contrast, 2 Lines)
                 Expanded(
