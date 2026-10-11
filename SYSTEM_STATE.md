@@ -242,6 +242,36 @@ flutter run -d windows
   2. Bungkus `product.barcode` dan `product.category` dengan `Flexible` dan `TextOverflow.ellipsis`, serta tambahkan `SizedBox(width: 8)` pemisah aman dari badge stok.
   3. Verifikasi live screenshot via ADB pada fisik OPPO (720x1600) membuktikan tampilan 100% rapi dan bebas overlap.
 
+---
+
+## 🚀 11. SaaS Cloud Mode v2.0 & Weboz Centralized Payment Engine
+
+> **Tanggal Rilis**: 11 Oktober 2026  
+> **Status**: 🟢 Production Ready (Dual-Engine Strict Isolation + Automated Unit Tests 19/19 Passed)
+
+### Fitur & Arsitektur Utama yang Diterapkan:
+1. **Strict Database Isolation & Anti-Illusion (`api_service.dart` & `local_db_service.dart`)**:
+   - Menghapus fallback diam-diam ke `larisai_offline.db` saat koneksi Cloud terputus.
+   - Mengalokasikan file database cache tenant terpisah: `larisai_cloud_store_<storeId>.db`.
+   - Menginisiasi custom exceptions: `CloudConnectionException` dan `LanConnectionException`.
+   - Menampilkan alert non-intrusif di UI dengan tombol "Coba Sambungkan Lagi" tanpa memanipulasi database offline mandiri.
+2. **Merchant Onboarding & 14-Day Free Trial Engine (`auth_service.dart` & `settings_dialog.dart`)**:
+   - Tab ganda bersih di Settings Dialog: `[ 🔑 Masuk Akun ]` vs `[ 📝 Daftar Toko Baru (Free Trial 14 Hari) ]`.
+   - Store Profile Card: Menampilkan Store ID, Email Owner, Status Badge (`🎉 Free Trial (Sisa 14 Hari)`), Live Latency Indicator, dan tombol Upgrade.
+   - Accordion Sandbox: Tombol Toko Demo 1 & 2 dipindahkan ke collapsible accordion paling bawah (*"🧪 Sandbox / Evaluasi Fitur"*).
+3. **In-App Tactile SaaS Payment Sheet (`saas_payment_sheet.dart`)**:
+   - 3 kartu pilihan paket: Bulanan Rp 49rb, Tahunan Rp 399rb (Diskon 33%), dan Lifetime LAN Resto Rp 599rb.
+   - Integrasi 1-klik salin nomor rekening BCA `8930847403` a.n. `Fahrur Rozi`.
+   - Tombol "Bayar Otomatis via QRIS Weboz" (`https://weboz.my.id/larisai?plan=...#checkout`) dengan 0% komisi toko aplikasi.
+   - Tombol konfirmasi WhatsApp CS resmi `0888-1264-995` dan tombol instan "Cek Status Pembayaran".
+4. **Backend SaaS Engine & Azure FinOps Deployment (`LarisAi-backend`)**:
+   - Endpoint Go POS:
+     - `POST /api/v1/auth/register-merchant`: Registrasi owner + tenant + store dengan 14 hari free trial & JWT token.
+     - `GET /api/v1/subscription/status`: Status langganan real-time (sisa hari, status grace period 3 hari, kuota outlet).
+     - `POST /api/v1/subscription/sync`: Webhook billing dari Weboz untuk perpanjangan langganan instan.
+   - Template Azure Container Apps (`azure-container-apps.bicep` & `deploy-azure.ps1`) di region `southeastasia` dengan scale-to-zero serverless ($100 Student Cap protection).
+   - Mediafire distribution runbook untuk installer Windows (`.exe`) dan Android (`.apk`).
+
 
 
 

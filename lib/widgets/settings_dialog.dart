@@ -12,6 +12,8 @@ import '../services/export_service.dart';
 import '../services/license_service.dart';
 import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
+import '../services/cloud_health_service.dart';
+import 'saas_payment_sheet.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -34,8 +36,18 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   late TextEditingController _storePhoneController;
   late TextEditingController _receiptFooterController;
 
-  final TextEditingController _authEmailController = TextEditingController(text: 'admin@larisai.com');
-  final TextEditingController _authPasswordController = TextEditingController(text: 'admin123');
+  final TextEditingController _authEmailController = TextEditingController();
+  final TextEditingController _authPasswordController = TextEditingController();
+
+  int _cloudAuthTab = 0; // 0: Login, 1: Register
+  bool _showSandboxTour = false;
+  String? _authFeedbackMessage;
+  bool _isAuthFeedbackError = false;
+  final TextEditingController _regOwnerNameController = TextEditingController();
+  final TextEditingController _regStoreNameController = TextEditingController();
+  final TextEditingController _regEmailController = TextEditingController();
+  final TextEditingController _regPhoneController = TextEditingController();
+  final TextEditingController _regPasswordController = TextEditingController();
 
   LicenseInfo? _licenseInfo;
   bool _isLoadingLicense = true;
@@ -61,6 +73,27 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     _receiptFooterController = TextEditingController(text: profile.receiptFooter);
 
     _loadLicense();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _posController.dispose();
+    _aiController.dispose();
+    _licenseController.dispose();
+    _storeNameController.dispose();
+    _ownerNameController.dispose();
+    _storeAddressController.dispose();
+    _storePhoneController.dispose();
+    _receiptFooterController.dispose();
+    _authEmailController.dispose();
+    _authPasswordController.dispose();
+    _regOwnerNameController.dispose();
+    _regStoreNameController.dispose();
+    _regEmailController.dispose();
+    _regPhoneController.dispose();
+    _regPasswordController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLicense() async {
@@ -126,22 +159,6 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         }
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _posController.dispose();
-    _aiController.dispose();
-    _licenseController.dispose();
-    _storeNameController.dispose();
-    _ownerNameController.dispose();
-    _storeAddressController.dispose();
-    _storePhoneController.dispose();
-    _receiptFooterController.dispose();
-    _authEmailController.dispose();
-    _authPasswordController.dispose();
-    super.dispose();
   }
 
   void _selectMode(ConnectionMode mode) {
@@ -776,6 +793,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             badgeColor: Colors.indigo.shade700,
             accentColor: Colors.indigo.shade700,
           ),
+          if (_selectedMode == ConnectionMode.cloud) ...[
+            _buildStoreAccountSection(),
+          ],
           _buildModeCard(
             mode: ConnectionMode.usb,
             icon: Icons.usb_rounded,
@@ -795,54 +815,109 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             accentColor: Colors.orange.shade800,
           ),
           if (_selectedMode == ConnectionMode.wifi) ...[
-            ValueListenableBuilder<bool>(
-              valueListenable: LocalHostServerService.instance.isRunning,
-              builder: (context, running, _) {
-                final url = LocalHostServerService.instance.serverUrl;
-                return Container(
-                  margin: const EdgeInsets.only(top: 2, bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: isDark ? 0.15 : 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.orange.shade300, width: 0.8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              margin: const EdgeInsets.only(top: 2, bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: isDark ? 0.15 : 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade300, width: 0.8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.hub_rounded, size: 16, color: Colors.orange.shade800),
-                          const SizedBox(width: 6),
-                          Text(
-                            running ? '🟢 Server Host Kasir PC Aktif' : '🟠 Server Host LAN',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
+                      Icon(Icons.wifi_tethering_rounded, size: 18, color: Colors.orange.shade800),
+                      const SizedBox(width: 8),
                       Text(
-                        running
-                            ? 'Alamat IP Host untuk Kasir HP:\n👉 $url\n\n(Arahkan aplikasi kasir di HP Android ke alamat IP ini)'
-                            : 'Server Host siap diaktifkan di port 8080.',
+                        'Mode LAN Resto / Multi-Kasir Wi-Fi',
                         style: TextStyle(
-                          fontSize: 10.5,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                          height: 1.3,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
                         ),
                       ),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 6),
+                  Text(
+                    '💡 100% Offline Lokal (Bebas Registrasi & Tanpa Internet)\nSemua kasir HP langsung terhubung ke PC Kasir Utama via Wi-Fi lokal. Tidak perlu mendaftar akun atau mengisi formulir data.',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: LocalHostServerService.instance.isRunning,
+                    builder: (context, running, _) {
+                      final url = LocalHostServerService.instance.serverUrl;
+                      if (!running && !Platform.isWindows) {
+                        return const SizedBox.shrink();
+                      }
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkCard : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              running ? Icons.check_circle_rounded : Icons.computer_rounded,
+                              size: 16,
+                              color: running ? Colors.green : Colors.grey,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                running
+                                    ? 'Host PC Aktif: $url'
+                                    : 'Aplikasi Desktop siap dijadikan Server Host di port 8080.',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  Text(
+                    'Alamat IP Host PC Kasir:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _posController,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Contoh: http://192.168.1.3:8080',
+                      prefixIcon: const Icon(Icons.link_rounded, size: 16),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                      filled: true,
+                      fillColor: isDark ? AppColors.darkCard : Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-          if (_selectedMode != ConnectionMode.offline) ...[
-            _buildStoreAccountSection(),
           ],
           const SizedBox(height: 10),
           GestureDetector(
@@ -951,16 +1026,61 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     );
   }
 
+  Widget _buildInlineAuthFeedback() {
+    if (_authFeedbackMessage == null || _authFeedbackMessage!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _isAuthFeedbackError
+            ? (isDark ? Colors.red.shade900.withValues(alpha: 0.3) : Colors.red.shade50)
+            : (isDark ? Colors.green.shade900.withValues(alpha: 0.3) : Colors.green.shade50),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isAuthFeedbackError ? Colors.redAccent : Colors.green,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            _isAuthFeedbackError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
+            color: _isAuthFeedbackError ? Colors.redAccent : Colors.green,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _authFeedbackMessage!,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: _isAuthFeedbackError
+                    ? (isDark ? Colors.red.shade200 : Colors.red.shade800)
+                    : (isDark ? Colors.green.shade200 : Colors.green.shade800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStoreAccountSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = AuthService.instance;
+    final health = CloudHealthService.instance;
 
     return Container(
       margin: const EdgeInsets.only(top: 10, bottom: 4),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
       ),
       child: Column(
@@ -970,184 +1090,628 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             children: [
               Icon(
                 Icons.hub_rounded,
-                size: 16,
+                size: 18,
                 color: auth.isLoggedIn ? Colors.green.shade600 : AppColors.primary,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Akun Toko Cloud / Hub (Multi-Tenant)',
+                  auth.isLoggedIn ? 'Profil Toko Cloud & Status Lisensi' : 'Hubungkan / Daftarkan Akun Toko',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.bold,
                     color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: (auth.isLoggedIn ? Colors.green : Colors.amber).withValues(alpha: 0.15),
+                  color: (auth.isLoggedIn ? Colors.green : Colors.amber).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
-                  auth.isLoggedIn ? 'ONLINE' : 'OFFLINE',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: auth.isLoggedIn ? Colors.green.shade700 : Colors.amber.shade800,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: auth.isLoggedIn ? Colors.green : Colors.amber.shade800,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      auth.isLoggedIn ? 'TERHUBUNG' : 'BELUM LOGIN',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: auth.isLoggedIn ? Colors.green.shade700 : Colors.amber.shade800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+
           if (auth.isLoggedIn) ...[
+            // 1. Store Profile & Subscription Hub Card
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${auth.storeName} (${auth.storeId})',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        Text(
-                          'Login: ${auth.email}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                          ),
+                        child: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              auth.storeName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Store ID: ${auth.storeId ?? "-"}',
+                              style: const TextStyle(fontSize: 10.5, color: Colors.grey, fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              'Owner: ${auth.email ?? "-"}',
+                              style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      await auth.logout();
-                      if (mounted) setState(() {});
-                    },
-                    child: const Text('Keluar', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  const SizedBox(height: 10),
+
+                  // Subscription Status Badge & Latency
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: auth.isSubscriptionActive
+                                ? Colors.green.withOpacity(0.1)
+                                : (auth.isTrialActive ? Colors.blue.withOpacity(0.1) : Colors.red.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            auth.subscriptionBadgeText,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: auth.isSubscriptionActive
+                                  ? Colors.green.shade700
+                                  : (auth.isTrialActive ? Colors.blue.shade700 : Colors.red.shade700),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Latency meter with refresh
+                      InkWell(
+                        onTap: () => health.checkHealth(),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: health.statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: health.statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                health.latencyMs != null ? '${health.latencyMs}ms' : 'Ping',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: health.statusColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Actions: Upgrade & Logout
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => SaaSPaymentSheet.show(context),
+                          icon: const Icon(Icons.credit_card_rounded, size: 14),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Perpanjang / Upgrade Paket',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () async {
+                          await auth.logout();
+                          if (mounted) setState(() {});
+                        },
+                        icon: const Icon(Icons.logout_rounded, size: 13),
+                        label: const Text('Keluar', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ] else ...[
-            Text(
-              'Hubungkan akun toko untuk sinkronisasi katalog dan transaksi multi-perangkat.',
-              style: TextStyle(
-                fontSize: 10.5,
-                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(height: 8),
+            // 2. Dual Tab: [ Masuk Akun ] vs [ Daftar Toko Baru ]
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _authEmailController,
-                    style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                    decoration: InputDecoration(
-                      hintText: 'Email Toko',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  child: InkWell(
+                    onTap: () => setState(() => _cloudAuthTab = 0),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _cloudAuthTab == 0
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkCard : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '🔑 Masuk Akun',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _cloudAuthTab == 0 ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
-                    controller: _authPasswordController,
-                    obscureText: true,
-                    style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                    decoration: InputDecoration(
-                      hintText: 'Password',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      _cloudAuthTab = 0;
+                      _authFeedbackMessage = null;
+                    }),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _cloudAuthTab == 0
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkCard : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '🔑 Masuk Akun',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _cloudAuthTab == 0 ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      _cloudAuthTab = 1;
+                      _authFeedbackMessage = null;
+                    }),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _cloudAuthTab == 1
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkCard : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '📝 Daftar Toko Baru',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _cloudAuthTab == 1 ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => _handleLogin(
-                  _authEmailController.text.trim(),
-                  _authPasswordController.text.trim(),
-                ),
-                icon: const Icon(Icons.login_rounded, size: 14),
-                label: const Text('Hubungkan Akun Toko', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+
+            if (_cloudAuthTab == 0) ...[
+              // LOGIN TAB
+              Text(
+                'Masuk dengan akun terdaftar untuk sinkronisasi multi-kasir.',
+                style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
               ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            '⚡ Uji Coba Multi-Tenant Cepat (Demo Mode):',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _authEmailController,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'Email Toko / Owner',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: TextField(
+                      controller: _authPasswordController,
+                      obscureText: true,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'Password',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              _buildInlineAuthFeedback(),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => _handleLogin('admin@larisai.com', 'admin123'),
-                  icon: const Icon(Icons.store_rounded, size: 13, color: AppColors.primary),
-                  label: const Text('Toko Demo 1 (Berkah)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                  onPressed: () => _handleLogin(
+                    _authEmailController.text.trim(),
+                    _authPasswordController.text.trim(),
+                  ),
+                  icon: const Icon(Icons.login_rounded, size: 14),
+                  label: const Text('Hubungkan Akun Toko', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            ] else ...[
+              // REGISTER TAB (14-DAY TRIAL)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.card_giftcard_rounded, color: Colors.blue, size: 16),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Gratis Free Trial 14 Hari penuh tanpa kartu kredit!',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _regOwnerNameController,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'Nama Pemilik',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: TextField(
+                      controller: _regStoreNameController,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'Nama Toko / Usaha',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _regEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'Email Toko',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: TextField(
+                      controller: _regPhoneController,
+                      keyboardType: TextInputType.phone,
+                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                      decoration: InputDecoration(
+                        hintText: 'No. WhatsApp Toko',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _regPasswordController,
+                obscureText: true,
+                style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  hintText: 'Password Toko (min 6 karakter)',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              _buildInlineAuthFeedback(),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => _handleLogin('toko2@larisai.com', 'admin123'),
-                  icon: const Icon(Icons.storefront_rounded, size: 13, color: Colors.orange),
-                  label: const Text('Toko Demo 2 (Sejahtera)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                  onPressed: _handleRegister,
+                  icon: const Icon(Icons.rocket_launch_rounded, size: 14),
+                  label: const Text('Daftar & Aktifkan Free Trial 14 Hari', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
+          ],
+
+          // 3. Collapsible Sandbox Accordion (Moved to bottom)
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () => setState(() => _showSandboxTour = !_showSandboxTour),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.science_outlined, size: 14, color: Colors.purple),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '🧪 Sandbox / Demo Tour (Evaluasi Tanpa Akun)',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.darkTextMain : Colors.purple.shade900,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _showSandboxTour ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ],
+              ),
+            ),
           ),
+
+          if (_showSandboxTour) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Coba cepat multi-tenant demo toko siap pakai tanpa registrasi:',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _handleLogin('admin@larisai.com', 'admin123'),
+                    icon: const Icon(Icons.store_rounded, size: 13, color: AppColors.primary),
+                    label: const Text('Toko Demo 1 (Berkah)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _handleLogin('toko2@larisai.com', 'admin123'),
+                    icon: const Icon(Icons.storefront_rounded, size: 13, color: Colors.orange),
+                    label: const Text('Toko Demo 2 (Sejahtera)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
+  Future<void> _handleRegister() async {
+    final name = _regOwnerNameController.text.trim();
+    final storeName = _regStoreNameController.text.trim();
+    final email = _regEmailController.text.trim();
+    final phone = _regPhoneController.text.trim();
+    final password = _regPasswordController.text.trim();
+
+    if (name.isEmpty || storeName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+      setState(() {
+        _authFeedbackMessage = 'Harap lengkapi semua kolom data pendaftaran toko.';
+        _isAuthFeedbackError = true;
+      });
+      return;
+    }
+    if (password.length < 6) {
+      setState(() {
+        _authFeedbackMessage = 'Password minimal harus 6 karakter.';
+        _isAuthFeedbackError = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _authFeedbackMessage = '⏳ Mendaftarkan toko baru ke cloud...';
+      _isAuthFeedbackError = false;
+    });
+
+    final effectiveUrl = _posController.text.trim().startsWith('http')
+        ? _posController.text.trim()
+        : ApiConstants.cloudPosBaseUrl;
+
+    final success = await AuthService.instance.registerMerchant(
+      name: name,
+      storeName: storeName,
+      email: email,
+      password: password,
+      phone: phone,
+      baseUrl: effectiveUrl,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      if (_selectedMode == ConnectionMode.offline) {
+        _selectMode(ConnectionMode.cloud);
+      }
+      await ApiConstants.setMode(_selectedMode);
+      final posProv = Provider.of<PosProvider>(context, listen: false);
+      posProv.updateBaseUrls();
+      await posProv.loadProducts();
+
+      setState(() {
+        _authFeedbackMessage = '🎉 Selamat datang, ${AuthService.instance.storeName}! Free Trial 14 Hari aktif.';
+        _isAuthFeedbackError = false;
+      });
+    } else {
+      setState(() {
+        _authFeedbackMessage = '❌ ' + (AuthService.instance.lastError ?? 'Gagal mendaftar toko baru. Periksa koneksi internet.');
+        _isAuthFeedbackError = true;
+      });
+    }
+  }
+
   Future<void> _handleLogin(String email, String password) async {
-    final messenger = ScaffoldMessenger.of(context);
     final posProv = Provider.of<PosProvider>(context, listen: false);
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _authFeedbackMessage = 'Harap masukkan email dan password toko.';
+        _isAuthFeedbackError = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _authFeedbackMessage = '⏳ Menghubungkan ke akun toko...';
+      _isAuthFeedbackError = false;
+    });
 
     final effectiveUrl = _posController.text.trim().startsWith('http')
         ? _posController.text.trim()
@@ -1160,7 +1724,6 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     );
     if (!mounted) return;
 
-    setState(() {});
     if (success) {
       if (_selectedMode == ConnectionMode.offline) {
         _selectMode(ConnectionMode.cloud);
@@ -1168,20 +1731,16 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
       await ApiConstants.setMode(_selectedMode);
       posProv.updateBaseUrls();
       await posProv.loadProducts();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('✅ Berhasil terhubung ke ${AuthService.instance.storeName}!'),
-          backgroundColor: AppColors.primary,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+
+      setState(() {
+        _authFeedbackMessage = '✅ Berhasil terhubung ke ${AuthService.instance.storeName}!';
+        _isAuthFeedbackError = false;
+      });
     } else {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('❌ Gagal login toko. Periksa koneksi internet / server.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _authFeedbackMessage = '❌ ' + (AuthService.instance.lastError ?? 'Gagal login toko. Periksa email & password.');
+        _isAuthFeedbackError = true;
+      });
     }
   }
 

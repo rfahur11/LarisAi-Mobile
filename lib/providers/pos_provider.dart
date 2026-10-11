@@ -12,6 +12,7 @@ class PosProvider extends ChangeNotifier {
   List<Product> _products = [];
   final List<CartItem> _cart = [];
   bool _isLoading = false;
+  String? _connectionError;
   String _selectedCategory = 'Semua';
   String _searchQuery = '';
   AnalyticsSummary? _summary;
@@ -26,6 +27,7 @@ class PosProvider extends ChangeNotifier {
 
   List<CartItem> get cart => _cart;
   bool get isLoading => _isLoading;
+  String? get connectionError => _connectionError;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   AnalyticsSummary? get summary => _summary;
@@ -38,6 +40,11 @@ class PosProvider extends ChangeNotifier {
 
   int get totalAmount => _cart.fold(0, (sum, item) => sum + item.subtotal);
   int get totalItems => _cart.fold(0, (sum, item) => sum + item.quantity);
+
+  void clearConnectionError() {
+    _connectionError = null;
+    notifyListeners();
+  }
 
   List<String> get categories {
     final set = <String>{'Semua'};
@@ -74,13 +81,22 @@ class PosProvider extends ChangeNotifier {
   Future<void> loadProducts({String? search}) async {
     _apiService.updateBaseUrls();
     _isLoading = true;
+    _connectionError = null;
     notifyListeners();
     _searchQuery = search ?? '';
     try {
       _products = await _apiService.getProducts(search: search);
+      _connectionError = null;
     } catch (e) {
       debugPrint('Error loading products: $e');
       _products = [];
+      if (e is CloudConnectionException) {
+        _connectionError = e.message;
+      } else if (e is LanConnectionException) {
+        _connectionError = e.message;
+      } else {
+        _connectionError = 'Gagal memuat produk: $e';
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

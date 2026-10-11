@@ -8,12 +8,16 @@ import '../models/product_model.dart';
 import '../models/transaction_model.dart';
 import '../models/ai_insights_model.dart';
 import '../models/analytics_model.dart';
+import '../core/constants/api_constants.dart';
+import 'auth_service.dart';
 import 'image_storage_service.dart';
 
 class LocalDbService {
   static final LocalDbService instance = LocalDbService._init();
   static Database? _database;
   static Completer<Database>? _dbOpenCompleter;
+  static final Map<String, Database> _tenantDatabases = {};
+  static final Map<String, Completer<Database>> _tenantOpenCompleters = {};
 
   LocalDbService._init();
 
@@ -23,7 +27,7 @@ class LocalDbService {
 
     _dbOpenCompleter = Completer<Database>();
     try {
-      _database = await _initDB('larisai_offline.db');
+      _database = await _initDB('larisai_offline.db', seedStarter: true);
       _dbOpenCompleter!.complete(_database!);
       return _database!;
     } catch (e, stack) {
@@ -33,7 +37,45 @@ class LocalDbService {
     }
   }
 
-  Future<Database> _initDB(String filePath) async {
+  /// Opens or retrieves an isolated tenant database for Cloud SaaS mode
+  Future<Database> getTenantDatabase(String storeId) async {
+    final cleanId = storeId.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+    final filename = 'larisai_cloud_store_$cleanId.db';
+
+    if (_tenantDatabases.containsKey(cleanId) && _tenantDatabases[cleanId]!.isOpen) {
+      return _tenantDatabases[cleanId]!;
+    }
+    if (_tenantOpenCompleters.containsKey(cleanId)) {
+      return _tenantOpenCompleters[cleanId]!.future;
+    }
+
+    final completer = Completer<Database>();
+    _tenantOpenCompleters[cleanId] = completer;
+
+    try {
+      final db = await _initDB(filename, seedStarter: false);
+      _tenantDatabases[cleanId] = db;
+      completer.complete(db);
+      return db;
+    } catch (e, stack) {
+      completer.completeError(e, stack);
+      _tenantOpenCompleters.remove(cleanId);
+      rethrow;
+    }
+  }
+
+  /// Resolves the active database depending on current connection mode
+  Future<Database> get activeDatabase async {
+    if (ApiConstants.currentMode == ConnectionMode.cloud) {
+      final storeId = AuthService.instance.storeId;
+      if (storeId != null && storeId.isNotEmpty) {
+        return await getTenantDatabase(storeId);
+      }
+    }
+    return await database;
+  }
+
+  Future<Database> _initDB(String filePath, {bool seedStarter = true}) async {
     String dbDirectoryPath;
 
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -60,7 +102,7 @@ class LocalDbService {
     return await openDatabase(
       path,
       version: 1,
-      onCreate: _createDB,
+      onCreate: (db, version) => _createDB(db, version, seedStarter: seedStarter),
       onOpen: (db) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS customers (
@@ -94,7 +136,7 @@ class LocalDbService {
     );
   }
 
-  Future<void> _createDB(Database db, int version) async {
+  Future<void> _createDB(Database db, int version, {bool seedStarter = true}) async {
     // 0. Customers Table
     await db.execute('''
       CREATE TABLE IF NOT EXISTS customers (
@@ -149,7 +191,9 @@ class LocalDbService {
     ''');
 
     // Seed starter products
-    await _seedStarterProducts(db);
+    if (seedStarter) {
+      await _seedStarterProducts(db);
+    }
   }
 
   Future<void> _seedStarterProducts(DatabaseExecutor db) async {
@@ -196,8 +240,8 @@ class LocalDbService {
   }
 
   // --- PRODUCT OPERATIONS ---
-  Future<List<Product>> getProducts({String? search}) async {
-    final db = await database;
+  Future<List<Product>> getProducts({String? search, Database? customDb}) async {
+    final db = customDb ?? await database;
     String whereClause = 'is_archived = 0';
     List<dynamic> whereArgs = [];
 
@@ -217,8 +261,8 @@ class LocalDbService {
     return maps.map((m) => Product.fromJson(m)).toList();
   }
 
-  Future<Product?> getProductByBarcode(String barcode) async {
-    final db = await database;
+  Future<Product?> getProductByBarcode(String barcode, {Database? customDb}) async {
+    final db = customDb ?? await database;
     final maps = await db.query(
       'products',
       where: 'barcode = ? AND is_archived = 0',
@@ -232,8 +276,8 @@ class LocalDbService {
     return null;
   }
 
-  Future<Product> insertProduct(Product product) async {
-    final db = await database;
+  Future<Product> insertProduct(Product product, {Database? customDb}) async {
+    final db = customDb ?? await database;
     final now = DateTime.now().toIso8601String();
 
     // Check if product already exists by ID or by barcode to prevent duplicate rows
@@ -271,8 +315,8 @@ class LocalDbService {
     return newProduct;
   }
 
-  Future<bool> updateProduct(Product product) async {
-    final db = await database;
+  Future<bool> updateProduct(Product product, {Database? customDb}) async {
+    final db = customDb ?? await database;
     final count = await db.update(
       'products',
       {
@@ -290,8 +334,8 @@ class LocalDbService {
     return count > 0;
   }
 
-  Future<bool> deleteProduct(String id) async {
-    final db = await database;
+  Future<bool> deleteProduct(String id, {Database? customDb}) async {
+    final db = customDb ?? await database;
     try {
       final existing = await db.query(
         'products',
@@ -316,8 +360,8 @@ class LocalDbService {
     return count > 0;
   }
 
-  Future<bool> reduceStock(String productId, int quantity) async {
-    final db = await database;
+  Future<bool> reduceStock(String productId, int quantity, {Database? customDb}) async {
+    final db = customDb ?? await database;
     final res = await db.rawUpdate(
       'UPDATE products SET stock = MAX(0, stock - ?), updated_at = ? WHERE id = ?',
       [quantity, DateTime.now().toIso8601String(), productId],
@@ -330,8 +374,9 @@ class LocalDbService {
     required List<Map<String, dynamic>> items,
     required String paymentType,
     String? customerId,
+    Database? customDb,
   }) async {
-    final db = await database;
+    final db = customDb ?? await database;
     final txId = 'tx_loc_${DateTime.now().millisecondsSinceEpoch}';
     final invoiceNo = 'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
     final now = DateTime.now();
@@ -435,8 +480,8 @@ class LocalDbService {
     );
   }
 
-  Future<List<Transaction>> getTransactions({int limit = 50}) async {
-    final db = await database;
+  Future<List<Transaction>> getTransactions({int limit = 50, Database? customDb}) async {
+    final db = customDb ?? await database;
     final txMaps = await db.query('transactions', orderBy: 'created_at DESC', limit: limit);
     
     List<Transaction> result = [];
@@ -459,8 +504,8 @@ class LocalDbService {
     return result;
   }
 
-  Future<bool> voidTransaction(String invoiceNo) async {
-    final db = await database;
+  Future<bool> voidTransaction(String invoiceNo, {Database? customDb}) async {
+    final db = customDb ?? await database;
     final txMaps = await db.query('transactions', where: 'invoice_no = ?', whereArgs: [invoiceNo]);
     if (txMaps.isEmpty) return false;
 
@@ -496,8 +541,8 @@ class LocalDbService {
   }
 
   // --- ANALYTICS ENGINE (Offline SQLite Queries) ---
-  Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA'}) async {
-    final db = await database;
+  Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA', Database? customDb}) async {
+    final db = customDb ?? await database;
 
     String whereClause = "WHERE (status IS NULL OR status != 'VOID')";
     final now = DateTime.now();

@@ -516,17 +516,58 @@ class _PosScreenState extends State<PosScreen> {
                   Expanded(
                     child: posProvider.isLoading
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                        : posProvider.products.isEmpty
+                        : posProvider.connectionError != null
                             ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade300),
-                                    const SizedBox(height: 12),
-                                    const Text('Produk tidak ditemukan', style: TextStyle(color: AppColors.textMuted)),
-                                  ],
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.08),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.redAccent),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        posProvider.connectionError!,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onPressed: () => posProvider.loadProducts(),
+                                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                                        label: const Text('Coba Sambungkan Lagi', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               )
+                            : posProvider.products.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade300),
+                                        const SizedBox(height: 12),
+                                        const Text('Produk tidak ditemukan', style: TextStyle(color: AppColors.textMuted)),
+                                      ],
+                                    ),
+                                  )
                             : GridView.builder(
                                 padding: const EdgeInsets.all(20),
                                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1475,23 +1516,64 @@ class _PosScreenState extends State<PosScreen> {
           Expanded(
             child: posProvider.isLoading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : posProvider.products.isEmpty
+                : posProvider.connectionError != null
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inventory_2_outlined, size: 48, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Produk tidak ditemukan',
-                              style: TextStyle(
-                                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                                fontWeight: FontWeight.w500,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.cloud_off_rounded, size: 42, color: Colors.redAccent),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              Text(
+                                posProvider.connectionError!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => posProvider.loadProducts(),
+                                icon: const Icon(Icons.refresh_rounded, size: 15),
+                                label: const Text('Coba Sambungkan Lagi', style: TextStyle(fontSize: 11.5)),
+                              ),
+                            ],
+                          ),
                         ),
                       )
+                    : posProvider.products.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.inventory_2_outlined, size: 48, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Produk tidak ditemukan',
+                                  style: TextStyle(
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
                     : GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
