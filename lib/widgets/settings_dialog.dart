@@ -1300,31 +1300,6 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               children: [
                 Expanded(
                   child: InkWell(
-                    onTap: () => setState(() => _cloudAuthTab = 0),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _cloudAuthTab == 0
-                            ? AppColors.primary
-                            : (isDark ? AppColors.darkCard : Colors.grey.shade200),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '🔑 Masuk Akun',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _cloudAuthTab == 0 ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
                     onTap: () => setState(() {
                       _cloudAuthTab = 0;
                       _authFeedbackMessage = null;
