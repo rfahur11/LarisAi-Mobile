@@ -20,6 +20,12 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     await LocalHostServerService.instance.startServer();
+  } else {
+    // On Mobile (Android): auto-start if merchant configured this phone as Master Host
+    final autoHost = await LocalHostServerService.instance.isAutoStartHostEnabled();
+    if (autoHost) {
+      await LocalHostServerService.instance.startServer();
+    }
   }
 
   await ApiConstants.loadSavedUrls();

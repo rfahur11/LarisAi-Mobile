@@ -134,7 +134,24 @@ class ExcelImportService {
   // ==========================================
   // 2. PARSE EXCEL BYTES KE LIST PRODUK
   // ==========================================
-  ExcelParseResult parseExcelBytes(List<int> bytes) {
+  ExcelParseResult parseExcelBytes(
+    List<int> bytes, {
+    int maxBytes = 5 * 1024 * 1024, // 5 MB DoS Guard
+    int maxRows = 5000,              // 5,000 Rows OOM Guard
+  }) {
+    // 1. DoS File Size Check
+    if (bytes.length > maxBytes) {
+      final sizeMb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+      return ExcelParseResult(
+        totalRows: 0,
+        validProducts: [],
+        errors: [
+          'File terlalu besar ($sizeMb MB). Batas maksimum file adalah 5 MB untuk mencegah beban memori perangkat berlebih.',
+        ],
+        warnings: [],
+      );
+    }
+
     final excel = Excel.decodeBytes(bytes);
     if (excel.tables.isEmpty) {
       return ExcelParseResult(
@@ -166,6 +183,18 @@ class ExcelImportService {
       );
     }
 
+    // 2. DoS Row Count Check
+    if (rows.length > maxRows) {
+      return ExcelParseResult(
+        totalRows: rows.length - 1,
+        validProducts: [],
+        errors: [
+          'Jumlah baris (${rows.length}) melebihi batas maksimum aman ($maxRows baris). Mohon pisah file menjadi beberapa bagian untuk mencegah aplikasi kehabisan memori.',
+        ],
+        warnings: [],
+      );
+    }
+
     // Pemetaan indeks kolom fleksibel berdasarkan header
     final headerRow = rows[0];
     int colBarcode = 0;
@@ -175,7 +204,7 @@ class ExcelImportService {
     int colStock = 5;
 
     for (var c = 0; c < headerRow.length; c++) {
-      final headerTitle = _cellToString(headerRow[c]?.value).toLowerCase();
+      final headerTitle = _cellToString(headerRow[c]?.value, sanitize: false).toLowerCase();
       if (headerTitle.contains('barcode') || headerTitle.contains('kode')) {
         colBarcode = c;
       } else if (headerTitle.contains('nama') || headerTitle.contains('produk') || headerTitle.contains('item')) {
@@ -203,7 +232,7 @@ class ExcelImportService {
       // Cek apakah seluruh baris kosong
       bool allEmpty = true;
       for (var cell in row) {
-        if (_cellToString(cell?.value).isNotEmpty) {
+        if (_cellToString(cell?.value, sanitize: false).isNotEmpty) {
           allEmpty = false;
           break;
         }
@@ -269,21 +298,47 @@ class ExcelImportService {
     return await _apiService.createProductsBulk(products);
   }
 
+  /// Sanitasi teks sel untuk mencegah Formula / DDE Injection (CWE-1236).
+  /// Mencegah eksekusi script berbahaya jika data diekspor kembali ke spreadsheet.
+  static String sanitizeFormulaInjection(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return '';
+
+    // Deteksi awalan formula berbahaya: =, +, -, @
+    final firstChar = trimmed[0];
+    if (firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@') {
+      // Kecualikan format angka minus murni (contoh: "-500" atau "-10.5")
+      if (firstChar == '-' && RegExp(r'^-\d+(\.\d+)?$').hasMatch(trimmed)) {
+        return trimmed;
+      }
+      return "'$trimmed";
+    }
+    return trimmed;
+  }
+
   // Helper konversi teks & nilai sel
-  String _cellToString(dynamic cellValue) {
+  String _cellToString(dynamic cellValue, {bool sanitize = true}) {
     if (cellValue == null) return '';
-    if (cellValue is TextCellValue) return cellValue.value.toString().trim();
-    if (cellValue is IntCellValue) return cellValue.value.toString();
-    if (cellValue is DoubleCellValue) return cellValue.value.toInt().toString();
-    if (cellValue is DateCellValue) return cellValue.asDateTimeLocal().toIso8601String();
-    return cellValue.toString().trim();
+    String res = '';
+    if (cellValue is TextCellValue) {
+      res = cellValue.value.toString().trim();
+    } else if (cellValue is IntCellValue) {
+      res = cellValue.value.toString();
+    } else if (cellValue is DoubleCellValue) {
+      res = cellValue.value.toInt().toString();
+    } else if (cellValue is DateCellValue) {
+      res = cellValue.asDateTimeLocal().toIso8601String();
+    } else {
+      res = cellValue.toString().trim();
+    }
+    return sanitize ? sanitizeFormulaInjection(res) : res;
   }
 
   int _parseNumeric(dynamic cellValue, {int defaultValue = 0}) {
     if (cellValue == null) return defaultValue;
     if (cellValue is IntCellValue) return cellValue.value;
     if (cellValue is DoubleCellValue) return cellValue.value.toInt();
-    final str = _cellToString(cellValue);
+    final str = _cellToString(cellValue, sanitize: false);
     final digitsOnly = str.replaceAll(RegExp(r'[^0-9]'), '');
     if (digitsOnly.isEmpty) return defaultValue;
     return int.tryParse(digitsOnly) ?? defaultValue;

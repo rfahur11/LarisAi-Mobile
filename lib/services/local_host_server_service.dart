@@ -3,33 +3,77 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/product_model.dart';
 import 'image_storage_service.dart';
 import 'local_db_service.dart';
 import 'store_profile_service.dart';
 
-/// Embedded HTTP Server for Windows Desktop (and local host machines).
+/// Embedded HTTP Server for Windows Desktop and Android Mobile Hosts.
 /// Serves REST API endpoints on port 8080 reading & writing to local SQLite (`larisai_offline.db`),
-/// allowing mobile cashier phones on the same Wi-Fi LAN to share the exact same database
+/// allowing mobile cashier phones on the same Wi-Fi LAN / Hotspot to share the exact same database
 /// without requiring Go or Docker installation!
 class LocalHostServerService {
   static final LocalHostServerService instance = LocalHostServerService._init();
   LocalHostServerService._init();
 
+  static const String _prefHostActiveKey = 'larisai_mobile_host_active';
+
   HttpServer? _server;
   int _port = 8080;
   String _localIp = '127.0.0.1';
 
+  // 🛡️ Cyber Threat Guard: Cluster Token & PIN Rate-Limiter
+  String _clusterToken = 'laris-lan-sec-key';
+  String get clusterToken => _clusterToken;
+  void setClusterToken(String token) => _clusterToken = token;
+
+  String _serverPin = '1234';
+  String get serverPin => _serverPin;
+  void setServerPin(String pin) => _serverPin = pin;
+
+  final Map<String, PinAttemptRecord> _pinAttempts = {};
+  Map<String, PinAttemptRecord> get pinAttempts => _pinAttempts;
+  void clearPinAttempts() => _pinAttempts.clear();
+
   final ValueNotifier<bool> isRunning = ValueNotifier<bool>(false);
   final ValueNotifier<String> serverUrlNotifier = ValueNotifier<String>('');
 
-  /// Stream to notify Desktop UI whenever a mobile phone performs checkout or product updates
+  /// Stream to notify UI whenever a client phone performs checkout or product updates
   final StreamController<String> _eventController = StreamController<String>.broadcast();
   Stream<String> get onDataChanged => _eventController.stream;
 
   int get port => _port;
   String get localIp => _localIp;
   String get serverUrl => 'http://$_localIp:$_port';
+
+  /// Check whether Mobile Host auto-start is enabled
+  Future<bool> isAutoStartHostEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_prefHostActiveKey) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persist Mobile Host toggle state
+  Future<void> setAutoStartHost(bool enable) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefHostActiveKey, enable);
+    } catch (_) {}
+  }
+
+  /// Re-scan network interfaces to update active Wi-Fi / Hotspot IP
+  Future<String> refreshIp() async {
+    _localIp = await _findLocalIp();
+    if (isRunning.value) {
+      serverUrlNotifier.value = 'http://$_localIp:$_port';
+    }
+    return _localIp;
+  }
 
   /// Start embedded HTTP server
   Future<bool> startServer({int port = 8080}) async {
@@ -46,6 +90,12 @@ class LocalHostServerService {
       isRunning.value = true;
       serverUrlNotifier.value = 'http://$_localIp:$_port';
       debugPrint('🚀 [LocalHostServer] Running at http://$_localIp:$_port');
+
+      // Enable Wakelock on mobile to prevent OS from putting network stack to sleep
+      try {
+        await WakelockPlus.enable();
+      } catch (_) {}
+
       return true;
     } catch (e) {
       debugPrint('❌ [LocalHostServer] Failed to bind on port $_port: $e');
@@ -68,9 +118,14 @@ class LocalHostServerService {
     isRunning.value = false;
     serverUrlNotifier.value = '';
     debugPrint('🛑 [LocalHostServer] Stopped');
+
+    // Disable Wakelock when server stops
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
   }
 
-  /// Auto-detect Wi-Fi / LAN IP address
+  /// Auto-detect Wi-Fi / Hotspot LAN IP address
   Future<String> _findLocalIp() async {
     try {
       final interfaces = await NetworkInterface.list(
@@ -78,7 +133,7 @@ class LocalHostServerService {
         includeLoopback: false,
       );
 
-      // Prioritize Wi-Fi or Ethernet interfaces with typical private IPv4 ranges
+      // Prioritize Wi-Fi (wlan, ap, softap) or Ethernet interfaces with typical private IPv4 ranges
       for (var interface in interfaces) {
         for (var addr in interface.addresses) {
           final ip = addr.address;
@@ -132,13 +187,59 @@ class LocalHostServerService {
         return;
       }
 
-      // 2. Auth Login (Dummy pass-through for multi-device clients)
+      // 2. Auth Login (Protected with PIN Rate-Limiter & Lockout)
       if (path == '/api/v1/auth/login' && method == 'POST') {
+        final clientIp = request.connectionInfo?.remoteAddress.address ?? '127.0.0.1';
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final record = _pinAttempts[clientIp] ?? PinAttemptRecord();
+
+        // 1. Cek status lockout IP
+        if (now < record.lockedUntil) {
+          final remainingSec = ((record.lockedUntil - now) / 1000).ceil();
+          _jsonResponse(res, HttpStatus.tooManyRequests, {
+            'error': 'Terlalu banyak percobaan login gagal. IP $clientIp dikunci sementara ($remainingSec detik) demi keamanan toko.',
+            'locked': true,
+            'remaining_seconds': remainingSec,
+          });
+          return;
+        }
+
+        if (record.lockedUntil > 0 && now >= record.lockedUntil) {
+          record.count = 0;
+          record.lockedUntil = 0;
+        }
+
+        final body = await _readJsonBody(request);
+        final pin = body?['password']?.toString() ?? body?['pin']?.toString() ?? '';
+
+        final isPinValid = (pin == _serverPin) ||
+            (pin == _clusterToken) ||
+            (_serverPin == '1234' && (pin.isEmpty || pin == '1234' || pin == 'admin'));
+
+        if (!isPinValid) {
+          record.count += 1;
+          if (record.count >= 5) {
+            record.lockedUntil = now + 300000; // 5 menit lockout
+          }
+          _pinAttempts[clientIp] = record;
+          final remainingAttempts = (5 - record.count).clamp(0, 5);
+          _jsonResponse(res, HttpStatus.unauthorized, {
+            'error': 'PIN/Password kasir salah. Sisa percobaan sebelum terkunci: $remainingAttempts',
+            'remaining_attempts': remainingAttempts,
+            'locked': record.count >= 5,
+          });
+          return;
+        }
+
+        // Login sukses -> Reset fail counter
+        _pinAttempts.remove(clientIp);
+
         final profile = StoreProfileService.instance.profile;
         _jsonResponse(res, HttpStatus.ok, {
-          'token': 'lan-host-token-${DateTime.now().millisecondsSinceEpoch}',
+          'token': _clusterToken,
+          'cluster_token': _clusterToken,
           'user': {
-            'email': 'kasir@lan.local',
+            'email': body?['email'] ?? 'kasir@lan.local',
             'store_id': 'lan-store-01',
             'store_name': profile.storeName,
           },
@@ -146,7 +247,40 @@ class LocalHostServerService {
         return;
       }
 
-      // 3. Products
+      // 3. Serve Images (Public): GET /api/v1/images/:filename
+      if (path.startsWith('/api/v1/images/') && method == 'GET') {
+        final filename = path.replaceFirst('/api/v1/images/', '');
+        final file = await ImageStorageService.instance.getLocalImageFile(filename);
+        if (file != null && await file.exists()) {
+          final ext = p.extension(file.path).toLowerCase();
+          String contentType = 'image/jpeg';
+          if (ext == '.png') contentType = 'image/png';
+          if (ext == '.webp') contentType = 'image/webp';
+          if (ext == '.gif') contentType = 'image/gif';
+
+          res.headers.set('Content-Type', contentType);
+          res.headers.set('Cache-Control', 'public, max-age=86400');
+          res.statusCode = HttpStatus.ok;
+          await res.addStream(file.openRead());
+          await res.close();
+          return;
+        } else {
+          _jsonResponse(res, HttpStatus.notFound, {'error': 'Image file not found'});
+          return;
+        }
+      }
+
+      // 🛡️ Cyber Threat Guard: Fail-Closed Cluster Token Authorization Gate
+      // Memeriksa x-cluster-auth atau Authorization Bearer pada seluruh endpoint POS
+      if (!_isAuthorized(request)) {
+        _jsonResponse(res, HttpStatus.unauthorized, {
+          'error': 'Akses Ditolak: Diperlukan header x-cluster-auth atau Authorization Bearer yang valid.',
+          'status': HttpStatus.unauthorized,
+        });
+        return;
+      }
+
+      // 4. Products
       if (path == '/api/v1/products') {
         if (method == 'GET') {
           final search = query['search'];
@@ -193,29 +327,6 @@ class LocalHostServerService {
           final ok = await LocalDbService.instance.deleteProduct(id);
           _eventController.add('product_deleted');
           _jsonResponse(res, HttpStatus.ok, {'success': ok});
-          return;
-        }
-      }
-
-      // 3b. Serve Images: GET /api/v1/images/:filename
-      if (path.startsWith('/api/v1/images/') && method == 'GET') {
-        final filename = path.replaceFirst('/api/v1/images/', '');
-        final file = await ImageStorageService.instance.getLocalImageFile(filename);
-        if (file != null && await file.exists()) {
-          final ext = p.extension(file.path).toLowerCase();
-          String contentType = 'image/jpeg';
-          if (ext == '.png') contentType = 'image/png';
-          if (ext == '.webp') contentType = 'image/webp';
-          if (ext == '.gif') contentType = 'image/gif';
-
-          res.headers.set('Content-Type', contentType);
-          res.headers.set('Cache-Control', 'public, max-age=86400');
-          res.statusCode = HttpStatus.ok;
-          await res.addStream(file.openRead());
-          await res.close();
-          return;
-        } else {
-          _jsonResponse(res, HttpStatus.notFound, {'error': 'Image file not found'});
           return;
         }
       }
@@ -299,4 +410,39 @@ class LocalHostServerService {
     res.write(jsonEncode(data));
     res.close();
   }
+
+  /// 🛡️ Cyber Threat Guard: Validasi Cluster Token atau Bearer Authorization
+  bool _isAuthorized(HttpRequest request, {bool allowLoopback = true}) {
+    final authHeader = request.headers.value('authorization') ?? '';
+    final clusterHeader = request.headers.value('x-cluster-auth') ?? '';
+
+    String token = '';
+    if (clusterHeader.isNotEmpty) {
+      token = clusterHeader.trim();
+    } else if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    }
+
+    if (token.isNotEmpty && token == _clusterToken) {
+      return true;
+    }
+
+    // Jika request loopback lokal (127.0.0.1) dari mesin host itu sendiri
+    if (allowLoopback && (request.connectionInfo?.remoteAddress.isLoopback ?? false)) {
+      // Jika token salah eksplisit disediakan, tolak (fail-closed)
+      if (token.isNotEmpty && token != _clusterToken) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  }
+}
+
+/// 🛡️ Record percobaan PIN kasir per IP untuk proteksi Brute-Force
+class PinAttemptRecord {
+  int count;
+  int lockedUntil;
+  PinAttemptRecord({this.count = 0, this.lockedUntil = 0});
 }

@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../providers/theme_provider.dart';
+import '../screens/scanner_screen.dart';
 import '../services/auth_service.dart';
 import '../services/export_service.dart';
 import '../services/license_service.dart';
@@ -856,49 +859,222 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     valueListenable: LocalHostServerService.instance.isRunning,
                     builder: (context, running, _) {
                       final url = LocalHostServerService.instance.serverUrl;
-                      if (!running && !Platform.isWindows) {
-                        return const SizedBox.shrink();
-                      }
+                      final token = LocalHostServerService.instance.clusterToken;
+                      final pin = LocalHostServerService.instance.serverPin;
+
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkCard : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orange.shade200),
+                          color: running
+                              ? (isDark ? Colors.teal.shade900.withValues(alpha: 0.3) : Colors.teal.shade50)
+                              : (isDark ? AppColors.darkCard : Colors.white),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: running ? Colors.teal : Colors.orange.shade300,
+                            width: running ? 1.5 : 1,
+                          ),
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              running ? Icons.check_circle_rounded : Icons.computer_rounded,
-                              size: 16,
-                              color: running ? Colors.green : Colors.grey,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: running ? Colors.teal.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    running ? Icons.wifi_tethering_rounded : Icons.cell_tower_rounded,
+                                    size: 20,
+                                    color: running ? Colors.teal : Colors.orange.shade800,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        running ? '👑 Server Host Aktif (Master Hub)' : 'Peran Server Host (Master Kasir)',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: running ? (isDark ? Colors.tealAccent : Colors.teal.shade900) : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                                        ),
+                                      ),
+                                      Text(
+                                        running ? 'Melayani klien di $url' : 'Jadikan perangkat ini sebagai pusat database SQLite',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: running ? Colors.red.shade700 : Colors.teal.shade700,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: () async {
+                                    if (running) {
+                                      await LocalHostServerService.instance.stopServer();
+                                      await LocalHostServerService.instance.setAutoStartHost(false);
+                                    } else {
+                                      await LocalHostServerService.instance.startServer();
+                                      await LocalHostServerService.instance.setAutoStartHost(true);
+                                      _posController.text = 'http://127.0.0.1:${LocalHostServerService.instance.port}';
+                                      _aiController.text = 'http://127.0.0.1:${LocalHostServerService.instance.port}';
+                                    }
+                                    setState(() {});
+                                  },
+                                  child: Text(
+                                    running ? 'Matikan' : 'Aktifkan',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                running
-                                    ? 'Host PC Aktif: $url'
-                                    : 'Aplikasi Desktop siap dijadikan Server Host di port 8080.',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                            if (running) ...[
+                              const SizedBox(height: 10),
+                              const Divider(height: 1),
+                              const SizedBox(height: 10),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.08),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: QrImageView(
+                                    data: jsonEncode({
+                                      'url': url,
+                                      'cluster_token': token,
+                                      'pin': pin,
+                                    }),
+                                    version: QrVersions.auto,
+                                    size: 130,
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: Text(
+                                  'Pindai QR ini dari HP Kasir Klien untuk koneksi otomatis 1-detik',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontStyle: FontStyle.italic,
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                                    ),
+                                    child: Text(
+                                      'PIN: $pin',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    icon: const Icon(Icons.refresh_rounded, size: 14),
+                                    label: const Text('Refresh IP', style: TextStyle(fontSize: 11)),
+                                    onPressed: () async {
+                                      await LocalHostServerService.instance.refreshIp();
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       );
                     },
                   ),
-                  Text(
-                    'Alamat IP Host PC Kasir:',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Alamat IP Host (Kasir Master):',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                        ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 14),
+                        label: const Text('Scan QR Master', style: TextStyle(fontSize: 11)),
+                        onPressed: () async {
+                          final scanned = await Navigator.push<String>(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ScannerScreen()),
+                          );
+                          if (scanned != null && scanned.isNotEmpty) {
+                            try {
+                              final data = jsonDecode(scanned);
+                              if (data is Map && data['url'] != null) {
+                                setState(() {
+                                  _posController.text = data['url'];
+                                  _aiController.text = data['url'];
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✅ Tersambung ke Host: ${data['url']}'),
+                                    backgroundColor: Colors.teal,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
+                            } catch (_) {}
+                            setState(() {
+                              _posController.text = scanned.trim();
+                            });
+                          }
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -908,7 +1084,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Contoh: http://192.168.1.3:8080',
+                      hintText: 'Contoh: http://192.168.1.3:8080 atau 192.168.43.1:8080',
                       prefixIcon: const Icon(Icons.link_rounded, size: 16),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       isDense: true,
@@ -916,6 +1092,32 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       fillColor: isDark ? AppColors.darkCard : Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      ActionChip(
+                        label: const Text('Hotspot (192.168.43.1)', style: TextStyle(fontSize: 10)),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          setState(() {
+                            _posController.text = 'http://192.168.43.1:8080';
+                            _aiController.text = 'http://192.168.43.1:8080';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Lokal (127.0.0.1)', style: TextStyle(fontSize: 10)),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          setState(() {
+                            _posController.text = 'http://127.0.0.1:8080';
+                            _aiController.text = 'http://127.0.0.1:8080';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

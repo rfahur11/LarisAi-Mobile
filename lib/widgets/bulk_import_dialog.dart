@@ -165,40 +165,70 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
     return AlertDialog(
       backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      titlePadding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.table_chart_rounded, color: AppColors.primary, size: 24),
+            child: const Icon(Icons.table_chart_rounded, color: AppColors.primary, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Impor Produk Massal',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  'Upload ratusan produk via file Excel (.xlsx)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                const SizedBox(height: 2),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  children: [
+                    Text(
+                      'Pilih .xlsx •',
+                      style: TextStyle(
+                        fontSize: 11,
                         color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                       ),
+                    ),
+                    InkWell(
+                      onTap: _isDownloadingTemplate || _isImporting ? null : _handleDownloadTemplate,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Text(
+                        _isDownloadingTemplate ? 'Menyiapkan...' : 'Unduh Template',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue.shade600,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
             onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(Icons.close_rounded, size: 22),
           ),
         ],
       ),
@@ -209,9 +239,9 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BENTO CARD 1: UNDUH TEMPLATE
+              // BENTO CARD: PILIH FILE EXCEL (FOKUS UTAMA)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkBackground : AppColors.background,
                   borderRadius: BorderRadius.circular(16),
@@ -226,86 +256,12 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.download_rounded, color: Colors.blue, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '1. Unduh Template Excel',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Format kolom standar (.xlsx) lengkap dengan 5 baris contoh produk FMCG.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: _isDownloadingTemplate || _isImporting ? null : _handleDownloadTemplate,
-                        style: FilledButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        icon: _isDownloadingTemplate
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.download_rounded, size: 18),
-                        label: Text(
-                          _isDownloadingTemplate ? 'Menyiapkan Template...' : 'Unduh Template Excel (.xlsx)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // BENTO CARD 2: PILIH FILE EXCEL
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBackground : AppColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.border,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: Colors.teal.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.upload_file_rounded, color: Colors.teal, size: 20),
+                          child: const Icon(Icons.upload_file_rounded, color: Colors.teal, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -313,12 +269,12 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                '2. Pilih File Excel (.xlsx)',
+                                'Pilih File Spreadsheet Excel',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
-                                _selectedFileName ?? 'Pilih file spreadsheet yang sudah Anda isi data produk.',
+                                _selectedFileName ?? 'Unggah file .xlsx yang sudah diisi data produk toko Anda.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: _selectedFileName != null ? FontWeight.w600 : FontWeight.normal,
@@ -334,7 +290,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -342,7 +298,7 @@ class _BulkImportDialogState extends State<BulkImportDialog> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         icon: _isParsing
                             ? const SizedBox(
