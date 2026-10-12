@@ -9,6 +9,8 @@ import '../widgets/settings_dialog.dart';
 import '../services/image_storage_service.dart';
 import '../widgets/product_image_thumbnail.dart';
 import 'scanner_screen.dart';
+import '../data/national_sku_data.dart';
+import '../widgets/quick_add_master_sku_dialog.dart';
 
 enum StockFilterType { all, outOfStock, lowStock, inStock, custom }
 enum StockOperator { lte, eq, gte }
@@ -112,6 +114,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         if (code != null) {
                           setModalState(() {
                             barcodeController.text = code;
+                            final master = NationalSkuLookup.findByBarcode(code);
+                            if (master != null) {
+                              if (nameController.text.trim().isEmpty) {
+                                nameController.text = master.name;
+                              }
+                              if (category == 'Umum') {
+                                category = master.category;
+                              }
+                              if (priceController.text.trim().isEmpty && master.defaultPriceEstimate > 0) {
+                                priceController.text = master.defaultPriceEstimate.toString();
+                              }
+                            }
                           });
                         }
                       },
@@ -409,6 +423,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         if (code != null) {
                           setModalState(() {
                             barcodeController.text = code;
+                            final master = NationalSkuLookup.findByBarcode(code);
+                            if (master != null) {
+                              if (nameController.text.trim().isEmpty) {
+                                nameController.text = master.name;
+                              }
+                              if (category == 'Umum') {
+                                category = master.category;
+                              }
+                              if (priceController.text.trim().isEmpty && master.defaultPriceEstimate > 0) {
+                                priceController.text = master.defaultPriceEstimate.toString();
+                              }
+                            }
                           });
                         }
                       },
@@ -1449,6 +1475,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     if (code != null && mounted) {
                       _searchController.text = code;
                       setState(() {});
+                      final posProvider = Provider.of<PosProvider>(context, listen: false);
+                      final existing = posProvider.products.where((p) => p.barcode == code).firstOrNull;
+                      if (existing == null) {
+                        final masterItem = NationalSkuLookup.findByBarcode(code);
+                        if (masterItem != null) {
+                          showDialog<bool>(
+                            context: context,
+                            builder: (_) => QuickAddMasterSkuDialog(
+                              masterItem: masterItem,
+                              barcode: code,
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
                   icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Colors.white),

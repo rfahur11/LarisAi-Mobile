@@ -13,6 +13,8 @@ import '../services/license_service.dart';
 import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
 import '../services/cloud_health_service.dart';
+import '../services/excel_import_service.dart';
+import 'bulk_import_dialog.dart';
 import 'saas_payment_sheet.dart';
 
 class SettingsDialog extends StatefulWidget {
@@ -1252,34 +1254,34 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
                   const SizedBox(height: 12),
 
-                  // Actions: Upgrade & Logout
-                  Row(
+                  // Actions: Upgrade & Logout (Responsive Wrap to prevent tight overflow)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            visualDensity: VisualDensity.compact,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () => SaaSPaymentSheet.show(context),
-                          icon: const Icon(Icons.rocket_launch_rounded, size: 14),
-                          label: const Text(
-                            'Upgrade Paket',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => SaaSPaymentSheet.show(context),
+                        icon: const Icon(Icons.rocket_launch_rounded, size: 14),
+                        label: const Text(
+                          'Perpanjang / Upgrade Paket',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
                           side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          visualDensity: VisualDensity.compact,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         onPressed: () async {
@@ -1364,35 +1366,30 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _authEmailController,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'Email Toko / Owner',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _authPasswordController,
-                      obscureText: true,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'Password',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: _authEmailController,
+                keyboardType: TextInputType.emailAddress,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.email_outlined, size: 16),
+                  hintText: 'Email Toko / Akun Owner',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _authPasswordController,
+                obscureText: true,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 16),
+                  hintText: 'Password',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
               _buildInlineAuthFeedback(),
               const SizedBox(height: 8),
@@ -1418,9 +1415,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.08),
+                  color: Colors.blue.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                 ),
                 child: const Row(
                   children: [
@@ -1436,76 +1433,65 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _regOwnerNameController,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'Nama Pemilik',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _regStoreNameController,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'Nama Toko / Usaha',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: _regStoreNameController,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.storefront_outlined, size: 16),
+                  hintText: 'Nama Toko / Usaha (misal: Toko Berkah)',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _regEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'Email Toko',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _regPhoneController,
-                      keyboardType: TextInputType.phone,
-                      style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
-                      decoration: InputDecoration(
-                        hintText: 'No. WhatsApp Toko',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: _regOwnerNameController,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.person_outline, size: 16),
+                  hintText: 'Nama Pemilik / Kasir',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _regEmailController,
+                keyboardType: TextInputType.emailAddress,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.email_outlined, size: 16),
+                  hintText: 'Email Toko (untuk login)',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _regPhoneController,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.phone_outlined, size: 16),
+                  hintText: 'No. WhatsApp Toko (08xxx)',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _regPasswordController,
                 obscureText: true,
-                style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
                 decoration: InputDecoration(
-                  hintText: 'Password Toko (min 6 karakter)',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 16),
+                  hintText: 'Password Toko (min. 6 karakter)',
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
@@ -1726,6 +1712,95 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- SEKSI IMPOR & TEMPLATE PRODUK EXCEL ---
+          Row(
+            children: [
+              const Icon(Icons.table_chart_rounded, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Impor & Input Produk Massal (Excel .xlsx)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Unggah ratusan data inventori sekaligus atau unduh format template resmi untuk toko Anda.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Action 1: Buka Dialog Impor Produk
+          _buildActionButton(
+            icon: Icons.upload_file_rounded,
+            color: Colors.teal.shade700,
+            title: 'Impor Produk Massal (Excel .xlsx)',
+            subtitle: 'Upload file spreadsheet (.xlsx) dan tinjau pratinjau barang sebelum disimpan',
+            onTap: () {
+              BulkImportDialog.show(
+                context,
+                onImportSuccess: () {
+                  final posProv = Provider.of<PosProvider>(context, listen: false);
+                  posProv.loadProducts();
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // Action 2: Langsung Unduh Template Excel
+          _buildActionButton(
+            icon: Icons.download_rounded,
+            color: Colors.blue.shade700,
+            title: 'Unduh Template Excel (.xlsx)',
+            subtitle: 'Format tabel standar lengkap dengan 5 baris contoh produk FMCG siap edit',
+            onTap: () async {
+              try {
+                final savedPath = await ExcelImportService.instance.downloadOrShareTemplate();
+                if (!mounted) return;
+                if (savedPath != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        Platform.isWindows
+                            ? 'Template berhasil disimpan di: $savedPath'
+                            : 'Template Excel siap diedit atau dibagikan.',
+                      ),
+                      backgroundColor: Colors.blue.shade700,
+                      behavior: SnackBarBehavior.floating,
+                      action: Platform.isWindows
+                          ? SnackBarAction(
+                              label: 'Buka Folder',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(savedPath),
+                            )
+                          : null,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal menyiapkan template: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 14),
+          Divider(color: isDark ? AppColors.darkBorder : null),
+          const SizedBox(height: 8),
+
+          // --- SEKSI EKSPOR LAPORAN ---
           Text(
             'Ekspor Laporan & Pembukuan Excel (.xlsx)',
             style: TextStyle(
@@ -2647,8 +2722,8 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
     final isMobile = mediaQuery.size.width < 600;
-    final dialogWidth = (mediaQuery.size.width * (isMobile ? 0.96 : 0.85)).clamp(320.0, 560.0);
-    final dialogHeight = (mediaQuery.size.height * (isMobile ? 0.74 : 0.65)).clamp(400.0, 620.0);
+    final dialogWidth = (mediaQuery.size.width * (isMobile ? 0.96 : 0.88)).clamp(340.0, 620.0);
+    final dialogHeight = (mediaQuery.size.height * (isMobile ? 0.82 : 0.72)).clamp(440.0, 680.0);
 
     return AlertDialog(
       backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,

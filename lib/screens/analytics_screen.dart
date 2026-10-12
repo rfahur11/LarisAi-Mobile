@@ -7,7 +7,6 @@ import '../models/analytics_model.dart';
 import '../models/transaction_model.dart';
 import '../services/api_service.dart';
 import '../services/export_service.dart';
-import '../services/local_db_service.dart';
 import '../widgets/receipt_dialog.dart';
 import '../widgets/settings_dialog.dart';
 
@@ -61,7 +60,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Future<void> _loadTransactions() async {
     try {
-      final txs = await LocalDbService.instance.getTransactions(limit: 500);
+      final txs = await _apiService.getTransactions();
       if (mounted) {
         setState(() {
           _allTransactions = txs;

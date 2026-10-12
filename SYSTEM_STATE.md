@@ -273,6 +273,66 @@ flutter run -d windows
    - Mediafire distribution runbook untuk installer Windows (`.exe`) dan Android (`.apk`).
 
 
+---
 
+## 📱 12. Verifikasi E2E Physical Device Android (Azure Media, Anti-Cutoff, Profil Toko, & AI Radar)
 
+> **Tanggal Verifikasi**: 12 Oktober 2026  
+> **Perangkat Uji**: OPPO CPH1933 (`3e893788`, Android 11) & OPPO CPH2473 (`ed81fac5`, Android 14)  
+> **Status**: 🟢 100% Verified Live di Layar Fisik
+
+### Hasil Verifikasi 6 Fitur Kunci:
+1. **Form Registrasi & Login Anti-Cutoff (`settings_dialog.dart`)**:
+   - Layout input berhasil dirombak menjadi single-column vertical stack lega (100% full-width).
+   - Label placeholder (`Nama Toko / Usaha`, `No. WhatsApp Toko`, dsb.) tidak lagi terpotong (*zero cutoff*).
+   - Tombol perpanjang / upgrade paket menggunakan `Wrap` adaptif anti-overflow.
+2. **Sinkronisasi Otomatis Profil Toko UMKM (`auth_service.dart` & `store_profile_service.dart`)**:
+   - Begitu login/registrasi berhasil di cloud SaaS, identitas toko langsung tersinkron:
+     - Header Navbar otomatis berganti nama toko (contoh: `Toko Azure Media Test`, Kasir: `Fahrur Rozi`).
+     - Struk nota digital otomatis mencetak identitas toko yang bersangkutan.
+3. **Penyimpanan Media Produk di Azure Blob Storage (`larisaimedia`)**:
+   - File gambar produk diunggah langsung ke Azure Blob Storage container `products-media` (`https://larisaimedia.blob.core.windows.net/products-media/...`).
+   - MongoDB Atlas hanya menyimpan URL CDN publik, menjaga ukuran database tetap ramping (<10 MB) dan backup super kilat.
+4. **Thumbnail Foto Produk di Rincian Belanja Lembar Pembayaran (`checkout_sheet.dart`)**:
+   - Thumbnail 36×36 px (rounded 8px) tampil rapi di sebelah kiri nama barang pada accordion "Rincian Belanja".
+5. **Struk Digital Tetap Bersih Teks Kertas Nota (`receipt_dialog.dart`)**:
+   - Sesuai keputusan user, struk nota digital dipertahankan 100% bersih berbasis teks monokrom/thermal tanpa gambar.
+6. **Multi-Tenant AI Radar & Analitik Transaksi Cloud**:
+   - `forecasting_service.py` & AI Engine diselaraskan ke database `larisai_pos` dan mengaktifkan peringatan darurat stok kritis ($\le 5$ pcs).
+   - Di layar fisik HP, AI Radar menampilkan badge merah darurat (`2h - Kritis: Habis dalam 2 hari ke depan!`) untuk `Kopi Susu Gula Aren` (stok 3) dan `Beras Ramos Super 5kg` (stok 5).
+   - Sub-tab Riwayat Transaksi di Analitik langsung menampilkan transaksi cloud `INV-20261012-7714` secara akurat.
+
+---
+
+## 📊 13. Sistem Input Produk Massal (Excel Bulk Import & Master SKU Barcode Library)
+
+> **Tanggal Rilis**: 12 Oktober 2026  
+> **Status**: 🟢 Production Ready & Verified Live di Layar Fisik OPPO A5 2020 (`3e893788`)
+
+### Solusi Mengatasi Onboarding Friction Pedagang UMKM:
+1. **Master Barcode SKU Nasional Library (~350+ Produk FMCG Populer Indonesia)**:
+   - `lib/data/national_sku_data.dart`: Pangkalan data EAN-13 produk ritel Indonesia (Indomie, Aqua, Le Minerale, Kopi Kapal Api, Bimoli, Sania, Pepsodent, Lifebuoy, Rinso, dll) dengan helper `NationalSkuLookup` ($O(1)$ hash map lookup).
+   - `lib/widgets/quick_add_master_sku_dialog.dart`: Dialog cepat saat scanner mendeteksi barcode baru. Nama barang & kategori terisi otomatis, kasir cukup mengisi harga jual & stok fisik.
+   - Terintegrasi langsung ke `ScannerScreen`, `PosScreen`, dan `InventoryScreen`.
+2. **Pure-Dart Excel Bulk Import Engine (`.xlsx`)**:
+   - `lib/services/excel_import_service.dart`:
+     - `generateTemplateBytes()`: Menghasilkan file template Excel baku dengan header terformat rapi dan 5 baris sampel FMCG.
+     - `downloadOrShareTemplate()`: Menggunakan `share_plus` di mobile dan direct save di desktop.
+     - `parseExcelBytes()`: Header fleksibel (case-insensitive & spasi toleran), sanitasi harga rupiah via regex non-numerik, auto-fallback barcode acak `BRC-...` jika kolom barcode kosong.
+   - `lib/services/local_db_service.dart`: Metode `insertProductsBatch()` menggunakan transaksi batch SQLite (`db.batch().commit(noResult: true)`), mampu mengimpor puluhan hingga ratusan produk dalam < 1 detik.
+   - `lib/services/api_service.dart`: Metode `createProductsBulk()` untuk pengiriman batch ke Cloud SaaS dan Wi-Fi LAN host (`POST /api/v1/products/bulk`).
+   - `lib/widgets/bulk_import_dialog.dart`: Bento box dialog elegan dengan 2 kartu aksi:
+     - Card 1: Unduh Template Excel dengan tombol native share.
+     - Card 2: Pilih File Excel dengan pratinjau badge produk siap impor, badge peringatan, dan tombol eksekusi batch.
+   - `lib/screens/inventory_screen.dart`: Tombol `[ 📊 ]` di AppBar (tooltip: "Impor Produk Excel (.xlsx)") untuk akses 1-tap.
+3. **Go Cloud POS Backend Bulk Endpoint (`LarisAi-backend`)**:
+   - DTO: `BulkCreateProductsRequest` & `BulkCreateProductsResponse` di `pos_dto.go`.
+   - Repository: `ProductRepository.CreateBulk` menggunakan MongoDB `InsertMany`.
+   - Service & Handler: `ProductService.CreateBulkProducts` dan `POST /api/v1/products/bulk` di `pos_handler.go`.
+   - Live Deployment: Commit `79d1a5e` dipush ke Hugging Face Space Cloud API.
+4. **Verifikasi E2E Physical Device OPPO A5 2020 (`3e893788`)**:
+   - Pengujian live menggunakan file `test_produk_warung.xlsx` (15 produk sembako dan FMCG).
+   - Kecepatan import instan (< 1 detik).
+   - Katalog inventori langsung terupdate dari 1 item ➔ **16 item (431 unit fisik stok)**.
+   - Tab Kasir langsung menampilkan 16 produk dengan status stok dan tombol `+ Tambah` yang siap ditransaksikan.
 

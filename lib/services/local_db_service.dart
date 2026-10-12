@@ -315,6 +315,55 @@ class LocalDbService {
     return newProduct;
   }
 
+  /// Batch insert produk massal untuk kinerja tinggi (mendukung ribuan produk < 1 detik)
+  Future<Map<String, dynamic>> insertProductsBatch(List<Product> products, {Database? customDb}) async {
+    if (products.isEmpty) {
+      return {'total_inserted': 0, 'total_skipped': 0};
+    }
+    final db = customDb ?? await database;
+    final now = DateTime.now().toIso8601String();
+
+    // Ambil daftar barcode yang sudah ada untuk menghindari duplikasi id
+    final existingRows = await db.query('products', columns: ['id', 'barcode']);
+    final Map<String, String> barcodeToIdMap = {
+      for (var row in existingRows)
+        row['barcode'].toString(): row['id'].toString(),
+    };
+
+    final batch = db.batch();
+    int count = 0;
+    for (var p in products) {
+      String id = p.id;
+      if (id.isEmpty && p.barcode.isNotEmpty && barcodeToIdMap.containsKey(p.barcode)) {
+        id = barcodeToIdMap[p.barcode]!;
+      }
+      if (id.isEmpty) {
+        id = 'loc_${DateTime.now().millisecondsSinceEpoch}_${count++}';
+      }
+      final resolvedImg = p.imagePath.trim().isNotEmpty ? p.imagePath.trim() : p.displayImagePath;
+
+      batch.insert('products', {
+        'id': id,
+        'barcode': p.barcode,
+        'name': p.name,
+        'category': p.category,
+        'price': p.price,
+        'stock': p.stock,
+        'is_archived': p.isArchived ? 1 : 0,
+        'image_path': resolvedImg,
+        'created_at': now,
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await batch.commit(noResult: true);
+    return {
+      'total_received': products.length,
+      'total_inserted': products.length,
+      'total_skipped': 0,
+    };
+  }
+
   Future<bool> updateProduct(Product product, {Database? customDb}) async {
     final db = customDb ?? await database;
     final count = await db.update(

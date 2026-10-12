@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/api_constants.dart';
+import 'store_profile_service.dart';
 
 class AuthService extends ChangeNotifier {
   static final AuthService instance = AuthService._internal();
@@ -172,6 +173,21 @@ class AuthService extends ChangeNotifier {
 
         await _saveToPrefs();
 
+        // Otomatis sinkronisasi identitas toko & profil UMKM
+        try {
+          final currentProfile = StoreProfileService.instance.profile;
+          final ownerName = (data['user']?['name'] as String?) ?? (data['name'] as String?) ?? currentProfile.ownerName;
+          await StoreProfileService.instance.saveProfile(
+            currentProfile.copyWith(
+              storeName: storeName,
+              ownerName: ownerName,
+              storePhone: userPhone ?? currentProfile.storePhone,
+            ),
+          );
+        } catch (e) {
+          debugPrint('StoreProfile auto-sync error on login: $e');
+        }
+
         _isLoading = false;
         _lastError = null;
         notifyListeners();
@@ -260,6 +276,20 @@ class AuthService extends ChangeNotifier {
         _expiresAt = null;
 
         await _saveToPrefs();
+
+        // Otomatis sinkronisasi identitas toko & profil UMKM
+        try {
+          final currentProfile = StoreProfileService.instance.profile;
+          await StoreProfileService.instance.saveProfile(
+            currentProfile.copyWith(
+              storeName: storeNameRes,
+              ownerName: name.trim(),
+              storePhone: phone.trim(),
+            ),
+          );
+        } catch (e) {
+          debugPrint('StoreProfile auto-sync error on register: $e');
+        }
 
         _isLoading = false;
         _lastError = null;

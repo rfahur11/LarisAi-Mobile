@@ -6,6 +6,7 @@ import '../core/constants/api_constants.dart';
 import '../providers/pos_provider.dart';
 import 'receipt_dialog.dart';
 import 'customer_selector_widget.dart';
+import 'product_image_thumbnail.dart';
 
 class CheckoutSheet extends StatefulWidget {
   const CheckoutSheet({super.key});
@@ -317,6 +318,15 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                           final item = posProvider.cart[idx];
                           return Row(
                             children: [
+                              ProductImageThumbnail(
+                                imagePath: item.product.displayImagePath,
+                                productName: item.product.name,
+                                barcode: item.product.barcode,
+                                width: 36,
+                                height: 36,
+                                borderRadius: 8,
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

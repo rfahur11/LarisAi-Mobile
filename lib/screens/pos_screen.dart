@@ -15,6 +15,8 @@ import '../services/store_profile_service.dart';
 import '../services/image_storage_service.dart';
 import '../widgets/product_image_thumbnail.dart';
 import 'scanner_screen.dart';
+import '../data/national_sku_data.dart';
+import '../widgets/quick_add_master_sku_dialog.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -64,12 +66,25 @@ class _PosScreenState extends State<PosScreen> {
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ Barcode $scannedCode tidak ditemukan di katalog'),
-              backgroundColor: AppColors.warning,
-            ),
-          );
+          // Cek apakah ada di Master SKU Nasional FMCG Indonesia
+          final masterItem = NationalSkuLookup.findByBarcode(scannedCode);
+          if (masterItem != null) {
+            showDialog<bool>(
+              context: context,
+              builder: (_) => QuickAddMasterSkuDialog(
+                masterItem: masterItem,
+                barcode: scannedCode,
+                autoAddToCart: true,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ Barcode $scannedCode tidak ditemukan di katalog'),
+                backgroundColor: AppColors.warning,
+              ),
+            );
+          }
         }
       }
     }
@@ -1748,31 +1763,38 @@ class _PosScreenState extends State<PosScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Category Badge with icon
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: catAccent.withValues(alpha: isDark ? 0.15 : 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: catAccent.withValues(alpha: isDark ? 0.35 : 0.2),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: catAccent.withValues(alpha: isDark ? 0.15 : 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: catAccent.withValues(alpha: isDark ? 0.35 : 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(catIcon, size: 12, color: catAccent),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                product.category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: catAccent,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(catIcon, size: 12, color: catAccent),
-                          const SizedBox(width: 4),
-                          Text(
-                            product.category,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: catAccent,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
+                    const SizedBox(width: 4),
 
                     // Stock Status Badge
                     Container(

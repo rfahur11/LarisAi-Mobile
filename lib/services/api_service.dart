@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import '../core/constants/api_constants.dart';
@@ -6,6 +7,7 @@ import '../models/transaction_model.dart';
 import '../models/ai_insights_model.dart';
 import '../models/analytics_model.dart';
 import 'auth_service.dart';
+import 'image_storage_service.dart';
 import 'local_db_service.dart';
 
 class CloudConnectionException implements Exception {
@@ -186,16 +188,55 @@ class ApiService {
     return null;
   }
 
+  // --- UPLOAD IMAGE ---
+  Future<String?> uploadProductImage(File file) async {
+    try {
+      final fileName = file.path.split(Platform.pathSeparator).last;
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final response = await _posDio.post('/api/v1/upload/image', data: formData);
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map) {
+          return data['url']?.toString() ?? data['image_url']?.toString() ?? data['image_path']?.toString();
+        }
+      }
+    } catch (_) {
+      // Fallback null
+    }
+    return null;
+  }
+
   Future<Product> createProduct(Product product) async {
     if (ApiConstants.isOfflineMode) {
       return await _localDb.insertProduct(product);
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
+      String finalImagePath = product.imagePath;
+      if (finalImagePath.isNotEmpty &&
+          !finalImagePath.startsWith('http://') &&
+          !finalImagePath.startsWith('https://') &&
+          !finalImagePath.startsWith('assets/')) {
+        try {
+          final localFile = await ImageStorageService.instance.getLocalImageFile(finalImagePath);
+          if (localFile != null && await localFile.exists()) {
+            final uploadedUrl = await uploadProductImage(localFile);
+            if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+              finalImagePath = uploadedUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      final payload = product.toJson();
+      payload['image_path'] = finalImagePath;
+
       try {
         final response = await _posDio.post(
           '/api/v1/products',
-          data: product.toJson(),
+          data: payload,
         );
         if ((response.statusCode == 200 || response.statusCode == 201) && response.data != null) {
           final created = Product.fromJson(response.data);
@@ -226,20 +267,125 @@ class ApiService {
     throw LanConnectionException('Gagal menambah produk ke Host LAN.');
   }
 
+  // --- BULK CREATE PRODUCTS ---
+  Future<Map<String, dynamic>> createProductsBulk(List<Product> products) async {
+    if (products.isEmpty) {
+      return {'total_received': 0, 'total_inserted': 0, 'total_skipped': 0};
+    }
+
+    // 1. Lifetime Offline Mode
+    if (ApiConstants.isOfflineMode) {
+      return await _localDb.insertProductsBatch(products);
+    }
+
+    // 2. Cloud SaaS Mode
+    if (ApiConstants.currentMode == ConnectionMode.cloud) {
+      final payload = {
+        'products': products.map((p) => {
+          'barcode': p.barcode,
+          'name': p.name,
+          'category': p.category,
+          'price': p.price,
+          'stock': p.stock,
+          'image_path': p.imagePath,
+        }).toList(),
+      };
+
+      try {
+        final response = await _posDio.post(
+          '/api/v1/products/bulk',
+          data: payload,
+        );
+
+        if ((response.statusCode == 200 || response.statusCode == 201) && response.data != null) {
+          final resData = response.data;
+          final dynamic data = (resData is Map && resData.containsKey('data')) ? resData['data'] : resData;
+
+          // Caching ke tenant local database untuk offline resilience
+          final tenantDb = await _getTenantDbOrNull();
+          if (tenantDb != null) {
+            await _localDb.insertProductsBatch(products, customDb: tenantDb);
+          }
+
+          return {
+            'total_received': data['total_received'] ?? products.length,
+            'total_inserted': data['total_inserted'] ?? products.length,
+            'total_skipped': data['total_skipped'] ?? 0,
+            'skipped_errors': data['skipped_errors'] ?? [],
+          };
+        }
+      } on DioException catch (e) {
+        throw CloudConnectionException(
+          'Gagal import massal ke Cloud: ${e.response?.data?['message'] ?? e.message}',
+          statusCode: e.response?.statusCode,
+        );
+      }
+      throw CloudConnectionException('Gagal import massal ke Cloud.');
+    }
+
+    // 3. Wi-Fi LAN / Host PC Mode
+    try {
+      final payload = {
+        'products': products.map((p) => {
+          'barcode': p.barcode,
+          'name': p.name,
+          'category': p.category,
+          'price': p.price,
+          'stock': p.stock,
+          'image_path': p.imagePath,
+        }).toList(),
+      };
+      final response = await _posDio.post('/api/v1/products/bulk', data: payload);
+      if ((response.statusCode == 200 || response.statusCode == 201) && response.data != null) {
+        final resData = response.data;
+        final dynamic data = (resData is Map && resData.containsKey('data')) ? resData['data'] : resData;
+        return {
+          'total_received': data['total_received'] ?? products.length,
+          'total_inserted': data['total_inserted'] ?? products.length,
+          'total_skipped': data['total_skipped'] ?? 0,
+          'skipped_errors': data['skipped_errors'] ?? [],
+        };
+      }
+    } on DioException catch (e) {
+      throw LanConnectionException('Gagal import massal ke Host LAN: ${e.message}');
+    }
+    throw LanConnectionException('Gagal import massal ke Host LAN.');
+  }
+
   Future<bool> updateProduct(Product product) async {
     if (ApiConstants.isOfflineMode) {
       return await _localDb.updateProduct(product);
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
+      String finalImagePath = product.imagePath;
+      if (finalImagePath.isNotEmpty &&
+          !finalImagePath.startsWith('http://') &&
+          !finalImagePath.startsWith('https://') &&
+          !finalImagePath.startsWith('assets/')) {
+        try {
+          final localFile = await ImageStorageService.instance.getLocalImageFile(finalImagePath);
+          if (localFile != null && await localFile.exists()) {
+            final uploadedUrl = await uploadProductImage(localFile);
+            if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+              finalImagePath = uploadedUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      final updatedProduct = product.copyWith(imagePath: finalImagePath);
+      final payload = updatedProduct.toJson();
+      payload['image_path'] = finalImagePath;
+
       try {
         final response = await _posDio.put(
           '/api/v1/products/${product.id}',
-          data: product.toJson(),
+          data: payload,
         );
         final tenantDb = await _getTenantDbOrNull();
         if (tenantDb != null) {
-          await _localDb.updateProduct(product, customDb: tenantDb);
+          await _localDb.updateProduct(updatedProduct, customDb: tenantDb);
         }
         return response.statusCode == 200;
       } on DioException catch (e) {
@@ -306,7 +452,7 @@ class ApiService {
       final response = await _posDio.post('/api/v1/transactions/void', data: {'invoice_no': invoiceNo});
       return response.statusCode == 200;
     } on DioException catch (e) {
-      throw LanConnectionException('Gagal membatalkan transaksi di Host LAN.');
+      throw LanConnectionException('Gagal membatalkan transaksi di Host LAN: ${e.message}');
     }
   }
 
@@ -456,7 +602,7 @@ class ApiService {
         return AnalyticsSummary.fromJson(response.data);
       }
     } on DioException catch (e) {
-      throw LanConnectionException('Gagal memuat analitik dari Host LAN.');
+      throw LanConnectionException('Gagal membatalkan transaksi dari Host LAN: ${e.message}');
     }
     return AnalyticsSummary(
       totalRevenue: 0,
@@ -474,7 +620,15 @@ class ApiService {
     }
 
     try {
-      final response = await _aiDio.get('/api/v1/ai/forecasting/stockouts');
+      final storeId = AuthService.instance.storeId;
+      final queryParams = <String, dynamic>{};
+      if (storeId != null && storeId.isNotEmpty) {
+        queryParams['store_id'] = storeId;
+      }
+      final response = await _aiDio.get(
+        '/api/v1/ai/forecasting/stockouts',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       if (response.statusCode == 200 && response.data != null) {
         var raw = response.data['predictions'] as List<dynamic>? ?? [];
         return raw.map((p) => StockoutPrediction.fromJson(p)).toList();
@@ -492,7 +646,15 @@ class ApiService {
     }
 
     try {
-      final response = await _aiDio.get('/api/v1/ai/clustering/customers');
+      final storeId = AuthService.instance.storeId;
+      final queryParams = <String, dynamic>{};
+      if (storeId != null && storeId.isNotEmpty) {
+        queryParams['store_id'] = storeId;
+      }
+      final response = await _aiDio.get(
+        '/api/v1/ai/clustering/customers',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       if (response.statusCode == 200 && response.data != null) {
         var raw = response.data['clusters'] as List<dynamic>? ?? [];
         return raw.map((c) => CustomerCluster.fromJson(c)).toList();
