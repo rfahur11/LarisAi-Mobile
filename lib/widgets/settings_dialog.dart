@@ -1260,17 +1260,17 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            visualDensity: VisualDensity.compact,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () => SaaSPaymentSheet.show(context),
-                          icon: const Icon(Icons.credit_card_rounded, size: 14),
-                          label: const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'Perpanjang / Upgrade Paket',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
+                          icon: const Icon(Icons.rocket_launch_rounded, size: 14),
+                          label: const Text(
+                            'Upgrade Paket',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
