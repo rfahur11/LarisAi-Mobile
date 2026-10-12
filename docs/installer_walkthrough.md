@@ -167,32 +167,23 @@ This script automatically:
 4. Creates `LarisAI_Windows_x64_Portable_v1.0.0.zip`.
 5. Prints a table of ready-to-distribute packages.
 
-### B. All-in-One Multi-Platform Script (Android + Windows)
-To build both Android APK and Windows packages in one execution:
+### B. All-in-One Multi-Platform Script (Android APK + Windows All)
+To build **all** distribution packages (Android Universal APK + Windows Desktop Binary + Setup Wizard .EXE + Portable ZIP) with **just 1 command**:
 
+#### ⚡ 1-Line PowerShell:
 ```powershell
-$env:PUB_CACHE = "D:\flutter_pub_cache"
-cd d:\porto\larisAi\LarisAi-Mobile
-
-Write-Host "📱 [1/3] Building Android Universal APK..." -ForegroundColor Cyan
-flutter build apk --release
-
-Write-Host "💻 [2/3] Building Windows Desktop Release..." -ForegroundColor Cyan
-flutter build windows --release
-
-Write-Host "📦 [3/3] Generating Setup Wizard and Packages..." -ForegroundColor Cyan
-New-Item -ItemType Directory -Force -Path "build\dist" | Out-Null
-Copy-Item "build\app\outputs\flutter-apk\app-release.apk" "build\dist\LarisAI_Mobile_Universal_v1.0.0.apk" -Force
-
-# Compile Inno Setup
-$iscc = if (Test-Path "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") { "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" } else { "C:\Program Files\Inno Setup 6\ISCC.exe" }
-& "$iscc" "windows\installer.iss"
-
-# Portable ZIP
-Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "build\dist\LarisAI_Windows_x64_Portable_v1.0.0.zip" -Force
-
-Write-Host "✅ All distribution packages ready in: build\dist\" -ForegroundColor Green
+cd d:\porto\larisAi\LarisAi-Mobile; .\scripts\build_all.ps1
 ```
+
+Or run directly from any directory without moving:
+```powershell
+powershell -ExecutionPolicy Bypass -File "d:\porto\larisAi\LarisAi-Mobile\scripts\build_all.ps1"
+```
+
+This single command will generate all merchant-ready artifacts in `build\dist\`:
+1. `LarisAI_Mobile_Universal_v1.0.0.apk` (Android smartphones / tablets)
+2. `LarisAI_Kasir_Windows_Setup_v1.0.0.exe` (Single-file Windows Installer wizard)
+3. `LarisAI_Windows_x64_Portable_v1.0.0.zip` (Portable ZIP for computers without admin rights)
 
 ---
 
