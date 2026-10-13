@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/pos_provider.dart';
 import '../providers/ai_provider.dart';
 import '../services/local_host_server_service.dart';
+import '../services/cloud_health_service.dart';
 import '../widgets/desktop_header.dart';
 import 'pos_screen.dart';
 import 'inventory_screen.dart';
@@ -21,6 +23,8 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   StreamSubscription<String>? _lanSub;
+  StreamSubscription<bool>? _healthSub;
+  StreamSubscription<void>? _reconnectedSub;
 
   @override
   void initState() {
@@ -33,11 +37,76 @@ class _MainScreenState extends State<MainScreen> {
         posProvider.loadSummary();
       }
     });
+
+    // Proactive Toast when Disconnected
+    _healthSub = CloudHealthService.instance.onConnectionChanged.listen((isConnected) {
+      if (!mounted) return;
+      if (!isConnected && !ApiConstants.isOfflineMode && !LocalHostServerService.instance.isRunning.value) {
+        final hostLabel = CloudHealthService.instance.targetHostLabel;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ApiConstants.currentMode == ConnectionMode.wifi
+                        ? '⚠️ Terputus dari Kasir Master ($hostLabel)!'
+                        : '⚠️ Koneksi ke Server Cloud Terputus!',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
+
+    // Proactive Toast and Silent Stock Sync when Reconnected
+    _reconnectedSub = CloudHealthService.instance.onReconnected.listen((_) {
+      if (!mounted) return;
+      if (!ApiConstants.isOfflineMode && !LocalHostServerService.instance.isRunning.value) {
+        final hostLabel = CloudHealthService.instance.targetHostLabel;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ApiConstants.currentMode == ConnectionMode.wifi
+                        ? '✅ Terhubung kembali ke Kasir Master ($hostLabel)!'
+                        : '✅ Terhubung kembali ke Server Cloud!',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green.shade800,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // Silent catalog & summary sync
+        final posProvider = Provider.of<PosProvider>(context, listen: false);
+        posProvider.loadProducts();
+        posProvider.loadSummary();
+      }
+    });
   }
 
   @override
   void dispose() {
     _lanSub?.cancel();
+    _healthSub?.cancel();
+    _reconnectedSub?.cancel();
     super.dispose();
   }
 

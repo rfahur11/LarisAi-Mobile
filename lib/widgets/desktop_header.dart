@@ -8,6 +8,8 @@ import '../providers/ai_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
+import '../services/cloud_health_service.dart';
+import 'connectivity_banner.dart';
 import 'order_history_dialog.dart';
 import 'settings_dialog.dart';
 
@@ -152,30 +154,63 @@ class DesktopHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Operational Mode Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? ApiConstants.modeColor.withValues(alpha: 0.25)
-                        : ApiConstants.modeColor.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark
-                          ? ApiConstants.modeColor.withValues(alpha: 0.6)
-                          : ApiConstants.modeColor.shade300,
-                    ),
-                  ),
-                  child: Text(
-                    ApiConstants.modeLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? ApiConstants.modeColor.shade200
-                          : ApiConstants.modeColor.shade800,
-                    ),
-                  ),
+                // Operational Mode Badge with Live Health Pulse
+                ListenableBuilder(
+                  listenable: CloudHealthService.instance,
+                  builder: (context, _) {
+                    final health = CloudHealthService.instance;
+                    final isDisconnected = health.isDisconnected &&
+                        ApiConstants.activeMode != ConnectionMode.offline &&
+                        !LocalHostServerService.instance.isRunning.value;
+                    final modeColor = isDisconnected ? Colors.red : ApiConstants.modeColor;
+                    final statusColor = isDisconnected
+                        ? Colors.red
+                        : (health.status == CloudHealthStatus.slow ? Colors.amber : Colors.green);
+                    final label = isDisconnected
+                        ? '${ApiConstants.modeLabel} (Terputus)'
+                        : ApiConstants.modeLabel;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? modeColor.withValues(alpha: 0.25)
+                            : modeColor.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark
+                              ? modeColor.withValues(alpha: 0.6)
+                              : modeColor.shade300,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (ApiConstants.activeMode != ConnectionMode.offline) ...[
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? modeColor.shade200
+                                  : modeColor.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 10),
 
@@ -296,6 +331,9 @@ class DesktopHeader extends StatelessWidget {
               ],
             ),
           ),
+
+          // Connectivity Warning Banner (Auto-expands when disconnected)
+          const ConnectivityBanner(),
 
           // 2. Navigation Tabs Bar
           Container(

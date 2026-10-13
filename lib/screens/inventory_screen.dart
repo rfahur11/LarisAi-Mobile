@@ -11,6 +11,7 @@ import '../widgets/product_image_thumbnail.dart';
 import 'scanner_screen.dart';
 import '../data/national_sku_data.dart';
 import '../widgets/quick_add_master_sku_dialog.dart';
+import '../widgets/connectivity_banner.dart';
 
 enum StockFilterType { all, outOfStock, lowStock, inStock, custom }
 enum StockOperator { lte, eq, gte }
@@ -1361,6 +1362,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
       body: Column(
         children: [
+          // Disconnection Warning Banner
+          const ConnectivityBanner(),
           // 1. Overview Metric Header
           Container(
             padding: EdgeInsets.symmetric(

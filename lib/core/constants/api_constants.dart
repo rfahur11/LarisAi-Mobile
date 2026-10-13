@@ -27,6 +27,7 @@ class ApiConstants {
   static String posBaseUrl = usbPosBaseUrl;
   static String aiBaseUrl = usbAiBaseUrl;
   static ConnectionMode currentMode = ConnectionMode.offline;
+  static ConnectionMode get activeMode => currentMode;
 
   /// Reactive notifier to immediately trigger header badge rebuilds
   static final ValueNotifier<ConnectionMode> modeNotifier = ValueNotifier<ConnectionMode>(ConnectionMode.offline);

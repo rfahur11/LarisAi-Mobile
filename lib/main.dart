@@ -10,6 +10,7 @@ import 'providers/theme_provider.dart';
 import 'services/auth_service.dart';
 import 'services/local_host_server_service.dart';
 import 'services/store_profile_service.dart';
+import 'services/cloud_health_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -31,6 +32,10 @@ void main() async {
   await ApiConstants.loadSavedUrls();
   await StoreProfileService.instance.init();
   await AuthService.instance.init();
+  CloudHealthService.instance.syncWithMode();
+  ApiConstants.modeNotifier.addListener(() {
+    CloudHealthService.instance.syncWithMode();
+  });
 
   runApp(
     MultiProvider(
@@ -39,6 +44,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PosProvider()),
         ChangeNotifierProvider(create: (_) => AiProvider()),
         ChangeNotifierProvider.value(value: AuthService.instance),
+        ChangeNotifierProvider.value(value: CloudHealthService.instance),
       ],
       child: const LarisAiApp(),
     ),

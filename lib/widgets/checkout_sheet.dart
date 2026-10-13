@@ -7,6 +7,8 @@ import '../providers/pos_provider.dart';
 import 'receipt_dialog.dart';
 import 'customer_selector_widget.dart';
 import 'product_image_thumbnail.dart';
+import '../services/cloud_health_service.dart';
+import '../services/local_host_server_service.dart';
 
 class CheckoutSheet extends StatefulWidget {
   const CheckoutSheet({super.key});
@@ -79,27 +81,68 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
       return;
     }
 
+    // Pre-checkout Guard: Block transactions when disconnected in client LAN or Cloud mode
+    final health = CloudHealthService.instance;
+    final isClientMode = ApiConstants.activeMode != ConnectionMode.offline &&
+        !LocalHostServerService.instance.isRunning.value;
+    if (isClientMode && health.isDisconnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Server Terputus! Sambungkan ulang ke Host sebelum memproses transaksi.'),
+          backgroundColor: AppColors.danger,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     final String customerNote = _selectedCustomer.trim();
 
-    final transaction = await posProvider.processCheckout(
-      paymentType: _selectedPayment,
-      customerId: customerNote.isNotEmpty ? customerNote : null,
-    );
-
-    setState(() => _isProcessing = false);
-
-    if (mounted && transaction != null) {
-      Navigator.pop(context); // Close checkout sheet
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => ReceiptDialog(
-          transaction: transaction,
-          cashTendered: _selectedPayment == 'TUNAI' ? _cashTendered : total,
-        ),
+    try {
+      final transaction = await posProvider.processCheckout(
+        paymentType: _selectedPayment,
+        customerId: customerNote.isNotEmpty ? customerNote : null,
       );
+
+      setState(() => _isProcessing = false);
+
+      if (mounted && transaction != null) {
+        Navigator.pop(context); // Close checkout sheet
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => ReceiptDialog(
+            transaction: transaction,
+            cashTendered: _selectedPayment == 'TUNAI' ? _cashTendered : total,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        if (e.toString().contains('LanConnectionException') ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('Connection refused')) {
+          CloudHealthService.instance.markDisconnected();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Gagal memproses transaksi: Koneksi ke server host terputus ($e).'),
+              backgroundColor: AppColors.danger,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Gagal memproses transaksi: $e'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
     }
   }
 

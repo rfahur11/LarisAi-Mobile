@@ -13,7 +13,10 @@ import '../widgets/settings_dialog.dart';
 import '../widgets/customer_selector_widget.dart';
 import '../services/store_profile_service.dart';
 import '../services/image_storage_service.dart';
+import '../services/cloud_health_service.dart';
+import '../services/local_host_server_service.dart';
 import '../widgets/product_image_thumbnail.dart';
+import '../widgets/connectivity_banner.dart';
 import 'scanner_screen.dart';
 import '../data/national_sku_data.dart';
 import '../widgets/quick_add_master_sku_dialog.dart';
@@ -306,36 +309,73 @@ class _PosScreenState extends State<PosScreen> {
       return;
     }
 
+    // Pre-Checkout Guard: Check if host/cloud server is reachable
+    if (!ApiConstants.isOfflineMode && !LocalHostServerService.instance.isRunning.value) {
+      final isHealthy = CloudHealthService.instance.status != CloudHealthStatus.disconnected;
+      if (!isHealthy) {
+        final testPing = await CloudHealthService.instance.checkHealth();
+        if (testPing == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                ApiConstants.currentMode == ConnectionMode.wifi
+                    ? '⚠️ Gagal memproses: Server Kasir Master (${CloudHealthService.instance.targetHostLabel}) tidak merespons. Pastikan HP Host aktif di Wi-Fi yang sama.'
+                    : '⚠️ Gagal memproses: Server Cloud tidak merespons. Periksa koneksi internet Anda.',
+              ),
+              backgroundColor: Colors.red.shade800,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          return;
+        }
+      }
+    }
+
     final effectiveCash = (_desktopPaymentType == 'TUNAI')
         ? (_desktopCashTendered > 0 ? _desktopCashTendered : total)
         : total;
 
     setState(() => _isProcessingCheckout = true);
 
-    final String customerNote = _desktopSelectedCustomer.trim();
+    try {
+      final String customerNote = _desktopSelectedCustomer.trim();
 
-    final tx = await posProvider.processCheckout(
-      paymentType: _desktopPaymentType,
-      customerId: customerNote.isNotEmpty ? customerNote : null,
-    );
-
-    setState(() => _isProcessingCheckout = false);
-
-    if (!context.mounted) return;
-
-    if (tx != null) {
-      showDialog(
-        context: context,
-        builder: (_) => ReceiptDialog(
-          transaction: tx,
-          cashTendered: effectiveCash,
-        ),
+      final tx = await posProvider.processCheckout(
+        paymentType: _desktopPaymentType,
+        customerId: customerNote.isNotEmpty ? customerNote : null,
       );
-      setState(() {
-        _desktopCashTendered = 0;
-        _desktopCashController.clear();
-        _desktopRefController.clear();
-      });
+
+      setState(() => _isProcessingCheckout = false);
+
+      if (!context.mounted) return;
+
+      if (tx != null) {
+        showDialog(
+          context: context,
+          builder: (_) => ReceiptDialog(
+            transaction: tx,
+            cashTendered: effectiveCash,
+          ),
+        );
+        setState(() {
+          _desktopCashTendered = 0;
+          _desktopCashController.clear();
+          _desktopRefController.clear();
+        });
+      }
+    } catch (e) {
+      setState(() => _isProcessingCheckout = false);
+      CloudHealthService.instance.markDisconnected();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Gagal menyelesaikan transaksi: $e'),
+            backgroundColor: Colors.red.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -1401,28 +1441,56 @@ class _PosScreenState extends State<PosScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? badgeColor.withValues(alpha: 0.25)
-                                  : badgeColor.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: isDark
-                                    ? badgeColor.withValues(alpha: 0.6)
-                                    : badgeColor.shade300,
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              badgeText,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? badgeColor.shade200 : badgeColor.shade800,
-                              ),
-                            ),
+                          ListenableBuilder(
+                            listenable: CloudHealthService.instance,
+                            builder: (context, _) {
+                              final health = CloudHealthService.instance;
+                              final isHost = LocalHostServerService.instance.isRunning.value;
+                              final isOffline = ApiConstants.isOfflineMode;
+                              final isDisconn = !isOffline && !isHost && health.isDisconnected;
+                              final effectiveColor = isDisconn ? Colors.red : badgeColor;
+                              final effectiveText = isDisconn ? '$badgeText (Terputus)' : badgeText;
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? effectiveColor.withValues(alpha: 0.25)
+                                      : effectiveColor.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? effectiveColor.withValues(alpha: 0.6)
+                                        : effectiveColor.shade300,
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (!isOffline && !isHost) ...[
+                                      Container(
+                                        width: 5.5,
+                                        height: 5.5,
+                                        decoration: BoxDecoration(
+                                          color: health.statusColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3.5),
+                                    ],
+                                    Text(
+                                      effectiveText,
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? effectiveColor.shade200 : effectiveColor.shade800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1461,6 +1529,7 @@ class _PosScreenState extends State<PosScreen> {
       ),
       body: Column(
         children: [
+          const ConnectivityBanner(),
           // Search Bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
