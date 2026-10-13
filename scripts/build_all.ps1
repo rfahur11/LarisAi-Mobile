@@ -16,18 +16,23 @@ Set-Location $ProjectRoot
 $env:PUB_CACHE = "D:\flutter_pub_cache"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   🚀 LarisAI - Unified Multi-Platform Build All         " -ForegroundColor Cyan
+Write-Host "   LarisAI - Unified Multi-Platform Build All             " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 $DistDir = "$ProjectRoot\build\dist"
-if (-not (Test-Path $DistDir)) {
+
+# Clean old artifacts in build\dist automatically
+Write-Host "[*] Cleaning old artifacts in build\dist..." -ForegroundColor DarkGray
+if (Test-Path $DistDir) {
+    Remove-Item -Path "$DistDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+} else {
     New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 }
 
 # ------------------------------------------------------------------------------
 # 1. Android Release APK
 # ------------------------------------------------------------------------------
-Write-Host "`n📱 [1/4] Compiling Android Universal Release APK..." -ForegroundColor Yellow
+Write-Host "`n[1/4] Compiling Android Universal Release APK..." -ForegroundColor Yellow
 flutter build apk --release
 
 $ApkSource = "build\app\outputs\flutter-apk\app-release.apk"
@@ -41,7 +46,7 @@ if (Test-Path $ApkSource) {
 # ------------------------------------------------------------------------------
 # 2. Windows Desktop Release
 # ------------------------------------------------------------------------------
-Write-Host "`n💻 [2/4] Compiling Windows Desktop Release Binary..." -ForegroundColor Yellow
+Write-Host "`n[2/4] Compiling Windows Desktop Release Binary..." -ForegroundColor Yellow
 flutter build windows --release
 
 $ReleaseDir = "build\windows\x64\runner\Release"
@@ -54,7 +59,7 @@ Write-Host "[OK] Windows Desktop binary compiled." -ForegroundColor Green
 # ------------------------------------------------------------------------------
 # 3. Windows Setup Wizard (.exe Installer via Inno Setup)
 # ------------------------------------------------------------------------------
-Write-Host "`n🛡️ [3/4] Compiling Windows Setup Wizard (.exe Installer)..." -ForegroundColor Yellow
+Write-Host "`n[3/4] Compiling Windows Setup Wizard (.exe Installer)..." -ForegroundColor Yellow
 $IsccPaths = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "C:\Program Files\Inno Setup 6\ISCC.exe",
@@ -84,7 +89,7 @@ if ($IsccExe) {
 # ------------------------------------------------------------------------------
 # 4. Windows Portable ZIP Archive
 # ------------------------------------------------------------------------------
-Write-Host "`n🗜️ [4/4] Creating Windows Portable ZIP Archive..." -ForegroundColor Yellow
+Write-Host "`n[4/4] Creating Windows Portable ZIP Archive..." -ForegroundColor Yellow
 $ZipTarget = "$DistDir\LarisAI_Windows_x64_Portable_v1.0.0.zip"
 Compress-Archive -Path "$ReleaseDir\*" -DestinationPath $ZipTarget -Force
 Write-Host "[OK] Portable ZIP created: $ZipTarget" -ForegroundColor Green
@@ -93,8 +98,8 @@ Write-Host "[OK] Portable ZIP created: $ZipTarget" -ForegroundColor Green
 # Output Summary
 # ------------------------------------------------------------------------------
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host "   🎉 ALL ARTIFACTS BUILT SUCCESSFULLY! Ready in:         " -ForegroundColor Green
-Write-Host "   📁 $DistDir" -ForegroundColor Green
+Write-Host "   ALL ARTIFACTS BUILT SUCCESSFULLY! Ready in:            " -ForegroundColor Green
+Write-Host "   $DistDir" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
 Get-ChildItem -Path $DistDir | Select-Object Name, @{Name="Size (MB)"; Expression={[math]::Round($_.Length / 1MB, 2)}}, LastWriteTime | Format-Table -AutoSize
