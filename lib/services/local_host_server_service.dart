@@ -125,6 +125,18 @@ class LocalHostServerService {
     } catch (_) {}
   }
 
+  List<String> _availableIps = [];
+  List<String> get availableIps => List.unmodifiable(_availableIps);
+
+  void setLocalIp(String ip) {
+    if (ip.trim().isNotEmpty) {
+      _localIp = ip.trim();
+      if (isRunning.value) {
+        serverUrlNotifier.value = 'http://$_localIp:$_port';
+      }
+    }
+  }
+
   /// Auto-detect Wi-Fi / Hotspot LAN IP address
   Future<String> _findLocalIp() async {
     try {
@@ -133,18 +145,52 @@ class LocalHostServerService {
         includeLoopback: false,
       );
 
-      // Prioritize Wi-Fi (wlan, ap, softap) or Ethernet interfaces with typical private IPv4 ranges
+      final List<String> hotspotIps = [];
+      final List<String> wifiIps = [];
+      final List<String> otherLanIps = [];
+
       for (var interface in interfaces) {
+        final name = interface.name.toLowerCase();
+        // Lewati kartu SIM seluler dan virtual dummy
+        if (name.contains('rmnet') ||
+            name.contains('ccmni') ||
+            name.contains('pdp') ||
+            name.contains('dummy')) {
+          continue;
+        }
+
         for (var addr in interface.addresses) {
           final ip = addr.address;
-          if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
-            return ip;
+          if (ip == '127.0.0.1') continue;
+
+          // Android Hotspot Gateway (192.168.43.x) atau interface tethering
+          if (ip.startsWith('192.168.43.') || name.contains('ap') || name.contains('softap') || name.contains('rndis')) {
+            if (!hotspotIps.contains(ip)) hotspotIps.add(ip);
+          } else if (name.contains('wlan') || name.contains('wifi') || name.contains('eth') || name.contains('en')) {
+            if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+              if (!wifiIps.contains(ip)) wifiIps.add(ip);
+            }
+          } else if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+            if (!otherLanIps.contains(ip)) otherLanIps.add(ip);
           }
         }
       }
 
+      _availableIps = [...hotspotIps, ...wifiIps, ...otherLanIps];
+
+      if (hotspotIps.isNotEmpty) {
+        return hotspotIps.first;
+      }
+      if (wifiIps.isNotEmpty) {
+        return wifiIps.first;
+      }
+      if (otherLanIps.isNotEmpty) {
+        return otherLanIps.first;
+      }
       if (interfaces.isNotEmpty && interfaces.first.addresses.isNotEmpty) {
-        return interfaces.first.addresses.first.address;
+        final fallback = interfaces.first.addresses.first.address;
+        if (!_availableIps.contains(fallback)) _availableIps.add(fallback);
+        return fallback;
       }
     } catch (_) {}
     return '127.0.0.1';

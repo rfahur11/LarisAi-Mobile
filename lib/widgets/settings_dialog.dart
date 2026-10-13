@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -56,6 +57,58 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   LicenseInfo? _licenseInfo;
   bool _isLoadingLicense = true;
+
+  bool _isTestingLan = false;
+  String? _lanTestStatus;
+  String? _lanTestMessage;
+
+  Future<void> _testLanConnection(String targetUrl, [String? clusterToken]) async {
+    if (targetUrl.trim().isEmpty) return;
+    setState(() {
+      _isTestingLan = true;
+      _lanTestStatus = null;
+      _lanTestMessage = null;
+    });
+
+    try {
+      var url = targetUrl.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'http://$url';
+      }
+      final token = clusterToken ?? AuthService.instance.lanClusterToken;
+      final effectiveToken = token.isNotEmpty ? token : 'laris-lan-sec-key';
+      final dio = Dio(BaseOptions(
+        baseUrl: url,
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+        headers: {
+          'x-cluster-auth': effectiveToken,
+          'Authorization': 'Bearer $effectiveToken',
+        },
+      ));
+
+      final sw = Stopwatch()..start();
+      final res = await dio.get('/api/v1/health');
+      sw.stop();
+
+      if (res.statusCode == 200 && res.data != null) {
+        final storeName = res.data['store_name'] ?? 'Toko Kasir Master';
+        setState(() {
+          _isTestingLan = false;
+          _lanTestStatus = 'success';
+          _lanTestMessage = '🟢 Terhubung: $storeName (${sw.elapsedMilliseconds} ms)';
+        });
+        return;
+      }
+      throw Exception('HTTP ${res.statusCode}');
+    } catch (e) {
+      setState(() {
+        _isTestingLan = false;
+        _lanTestStatus = 'error';
+        _lanTestMessage = '🔴 Gagal: Pastikan Host Server aktif di Wi-Fi/Hotspot yang sama.';
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -1020,6 +1073,31 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                                   ),
                                 ],
                               ),
+                              if (LocalHostServerService.instance.availableIps.length > 1) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Pilih IP Interface Server:',
+                                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  children: LocalHostServerService.instance.availableIps.map((ip) {
+                                    final isSel = LocalHostServerService.instance.localIp == ip;
+                                    return ChoiceChip(
+                                      label: Text(ip, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                                      selected: isSel,
+                                      selectedColor: Colors.teal.withValues(alpha: 0.3),
+                                      onSelected: (val) {
+                                        if (val) {
+                                          LocalHostServerService.instance.setLocalIp(ip);
+                                          setState(() {});
+                                        }
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ],
                         ),
@@ -1054,23 +1132,29 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                             try {
                               final data = jsonDecode(scanned);
                               if (data is Map && data['url'] != null) {
-                                setState(() {
-                                  _posController.text = data['url'];
-                                  _aiController.text = data['url'];
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('✅ Tersambung ke Host: ${data['url']}'),
-                                    backgroundColor: Colors.teal,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
+                                final hostUrl = data['url'].toString();
+                                final clusterToken = data['cluster_token']?.toString() ?? 'laris-lan-sec-key';
+                                final pin = data['pin']?.toString() ?? '1234';
+
+                                await AuthService.instance.setLanClusterSession(
+                                  clusterToken: clusterToken,
+                                  pin: pin,
                                 );
+
+                                setState(() {
+                                  _posController.text = hostUrl;
+                                  _aiController.text = hostUrl;
+                                });
+
+                                await _testLanConnection(hostUrl, clusterToken);
                                 return;
                               }
                             } catch (_) {}
                             setState(() {
                               _posController.text = scanned.trim();
+                              _aiController.text = scanned.trim();
                             });
+                            await _testLanConnection(scanned.trim());
                           }
                         },
                       ),
@@ -1094,6 +1178,68 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     ),
                   ),
                   const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            side: BorderSide(color: isDark ? AppColors.darkBorder : Colors.orange.shade300),
+                          ),
+                          icon: _isTestingLan
+                              ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.network_check_rounded, size: 16),
+                          label: Text(
+                            _isTestingLan ? 'Memeriksa...' : '🔍 Uji Sambungan Host',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _isTestingLan
+                              ? null
+                              : () => _testLanConnection(_posController.text.trim()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_lanTestMessage != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _lanTestStatus == 'success'
+                            ? Colors.green.withValues(alpha: 0.12)
+                            : Colors.red.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _lanTestStatus == 'success' ? Colors.green : Colors.red,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _lanTestStatus == 'success' ? Icons.check_circle_rounded : Icons.error_rounded,
+                            size: 16,
+                            color: _lanTestStatus == 'success' ? Colors.green.shade700 : Colors.red.shade700,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _lanTestMessage!,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: _lanTestStatus == 'success'
+                                    ? (isDark ? Colors.greenAccent : Colors.green.shade900)
+                                    : (isDark ? Colors.redAccent : Colors.red.shade900),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
                     children: [
@@ -1105,6 +1251,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                             _posController.text = 'http://192.168.43.1:8080';
                             _aiController.text = 'http://192.168.43.1:8080';
                           });
+                          _testLanConnection('http://192.168.43.1:8080');
                         },
                       ),
                       ActionChip(
@@ -1115,6 +1262,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                             _posController.text = 'http://127.0.0.1:8080';
                             _aiController.text = 'http://127.0.0.1:8080';
                           });
+                          _testLanConnection('http://127.0.0.1:8080');
                         },
                       ),
                     ],

@@ -9,6 +9,7 @@ import '../models/analytics_model.dart';
 import 'auth_service.dart';
 import 'image_storage_service.dart';
 import 'local_db_service.dart';
+import 'local_host_server_service.dart';
 
 class CloudConnectionException implements Exception {
   final String message;
@@ -33,6 +34,8 @@ class ApiService {
   late Dio _aiDio;
   final LocalDbService _localDb = LocalDbService.instance;
 
+  bool get _useLocalDb => ApiConstants.isOfflineMode || LocalHostServerService.instance.isRunning.value;
+
   ApiService() {
     _posDio = Dio(BaseOptions(
       baseUrl: ApiConstants.posBaseUrl,
@@ -50,9 +53,16 @@ class ApiService {
 
     final authInterceptor = InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = AuthService.instance.token;
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
+        if (ApiConstants.currentMode == ConnectionMode.wifi || ApiConstants.currentMode == ConnectionMode.usb) {
+          final lanToken = AuthService.instance.lanClusterToken;
+          final effectiveToken = lanToken.isNotEmpty ? lanToken : 'laris-lan-sec-key';
+          options.headers['x-cluster-auth'] = effectiveToken;
+          options.headers['Authorization'] = 'Bearer $effectiveToken';
+        } else {
+          final token = AuthService.instance.token;
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
         }
         return handler.next(options);
       },
@@ -87,7 +97,7 @@ class ApiService {
   // --- PRODUCTS ---
   Future<List<Product>> getProducts({String? search}) async {
     // 1. Lifetime Offline Mode -> Query local SQLite directly
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getProducts(search: search);
     }
 
@@ -151,7 +161,7 @@ class ApiService {
   }
 
   Future<Product?> getProductByBarcode(String barcode) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getProductByBarcode(barcode);
     }
 
@@ -209,7 +219,7 @@ class ApiService {
   }
 
   Future<Product> createProduct(Product product) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.insertProduct(product);
     }
 
@@ -274,7 +284,7 @@ class ApiService {
     }
 
     // 1. Lifetime Offline Mode
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.insertProductsBatch(products);
     }
 
@@ -353,7 +363,7 @@ class ApiService {
   }
 
   Future<bool> updateProduct(Product product) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.updateProduct(product);
     }
 
@@ -403,7 +413,7 @@ class ApiService {
   }
 
   Future<bool> deleteProduct(String id) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.deleteProduct(id);
     }
 
@@ -430,7 +440,7 @@ class ApiService {
   }
 
   Future<bool> voidTransaction(String invoiceNo) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.voidTransaction(invoiceNo);
     }
 
@@ -463,7 +473,7 @@ class ApiService {
     String? customerId,
   }) async {
     // 1. Offline Mode -> Local SQLite atomic transaction
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.insertTransaction(
         items: items,
         paymentType: paymentType,
@@ -528,7 +538,7 @@ class ApiService {
 
   // --- TRANSACTIONS ---
   Future<List<Transaction>> getTransactions() async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getTransactions();
     }
 
@@ -563,7 +573,7 @@ class ApiService {
 
   // --- ANALYTICS ---
   Future<AnalyticsSummary> getAnalyticsSummary({String timeRange = 'SEMUA'}) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getAnalyticsSummary(timeRange: timeRange);
     }
 
@@ -615,7 +625,7 @@ class ApiService {
 
   // --- AI ENGINE (Stockout & Clustering) ---
   Future<List<StockoutPrediction>> getAiStockoutPredictions() async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getAiStockoutPredictions();
     }
 
@@ -641,7 +651,7 @@ class ApiService {
   }
 
   Future<List<CustomerCluster>> getAiCustomerClusters() async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       return await _localDb.getAiCustomerClusters();
     }
 
@@ -666,7 +676,7 @@ class ApiService {
   }
 
   Future<bool> sendAiPromo({required String clusterLabel, required String message}) async {
-    if (ApiConstants.isOfflineMode) {
+    if (_useLocalDb) {
       await Future.delayed(const Duration(milliseconds: 300));
       return true;
     }

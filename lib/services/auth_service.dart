@@ -17,6 +17,8 @@ class AuthService extends ChangeNotifier {
   static const String _prefSubscriptionStatus = 'larisai_subscription_status';
   static const String _prefExpiresAt = 'larisai_expires_at';
   static const String _prefTrialEndsAt = 'larisai_trial_ends_at';
+  static const String _prefLanClusterToken = 'larisai_lan_cluster_token';
+  static const String _prefLanPin = 'larisai_lan_pin';
 
   String? _token;
   String? _storeId;
@@ -30,7 +32,12 @@ class AuthService extends ChangeNotifier {
   bool _isLoading = false;
   String? _lastError;
 
+  String _lanClusterToken = 'laris-lan-sec-key';
+  String _lanPin = '1234';
+
   String? get token => _token;
+  String get lanClusterToken => _lanClusterToken;
+  String get lanPin => _lanPin;
   String? get storeId => _storeId;
   String get storeName => _storeName ?? 'Toko UMKM';
   String? get email => _email;
@@ -88,6 +95,32 @@ class AuthService extends ChangeNotifier {
       _trialEndsAt = DateTime.now().add(const Duration(days: 14));
     }
 
+    _lanClusterToken = prefs.getString(_prefLanClusterToken) ?? 'laris-lan-sec-key';
+    _lanPin = prefs.getString(_prefLanPin) ?? '1234';
+
+    notifyListeners();
+  }
+
+  /// 🛡️ Menyimpan sesi autentikasi kluster LAN lokal (bebas registrasi/cloud)
+  Future<void> setLanClusterSession({
+    required String clusterToken,
+    String pin = '1234',
+    String? storeName,
+    String? storeId,
+  }) async {
+    _lanClusterToken = clusterToken.trim().isNotEmpty ? clusterToken.trim() : 'laris-lan-sec-key';
+    _lanPin = pin.trim().isNotEmpty ? pin.trim() : '1234';
+    if (storeName != null && storeName.isNotEmpty) {
+      _storeName = storeName;
+    }
+    if (storeId != null && storeId.isNotEmpty) {
+      _storeId = storeId;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefLanClusterToken, _lanClusterToken);
+    await prefs.setString(_prefLanPin, _lanPin);
+    if (_storeName != null) await prefs.setString(_prefStoreName, _storeName!);
+    if (_storeId != null) await prefs.setString(_prefStoreId, _storeId!);
     notifyListeners();
   }
 
