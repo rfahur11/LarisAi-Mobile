@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:larisai_mobile/models/product_model.dart';
 import 'package:larisai_mobile/services/image_storage_service.dart';
 import 'package:larisai_mobile/services/local_db_service.dart';
@@ -93,10 +92,14 @@ void main() {
       expect(ok, isTrue);
 
       try {
-        final res = await http.get(Uri.parse('http://127.0.0.1:8097/api/v1/images/test_serve_img.jpg'));
+        final dio = Dio();
+        final res = await dio.get<List<int>>(
+          'http://127.0.0.1:8097/api/v1/images/test_serve_img.jpg',
+          options: Options(responseType: ResponseType.bytes),
+        );
         expect(res.statusCode, equals(200));
-        expect(res.headers['content-type'], contains('image/jpeg'));
-        expect(res.bodyBytes, equals(dummyBytes));
+        expect(res.headers.value('content-type'), contains('image/jpeg'));
+        expect(res.data, equals(dummyBytes));
       } finally {
         await server.stopServer();
         // Clean up dummy test file

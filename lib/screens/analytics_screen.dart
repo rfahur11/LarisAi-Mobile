@@ -15,13 +15,16 @@ class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key, this.initialSubTab = 0});
 
   @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+  State<AnalyticsScreen> createState() => AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
+class AnalyticsScreenState extends State<AnalyticsScreen> {
   final ApiService _apiService = ApiService();
   AnalyticsSummary? _summary;
-  bool _isLoading = true;
+  bool _isLoadingSummary = true;
+  bool _isLoadingTransactions = false;
+  String? _summaryError;
+  String? _transactionsError;
   int _activeSubTab = 0; // 0: Ringkasan & Tren, 1: Riwayat Transaksi
   String _selectedTimeRange = 'SEMUA'; // SEMUA, HARI_INI, 7_HARI, BULAN_INI
 
@@ -47,18 +50,47 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     super.dispose();
   }
 
+  Future<void> reloadAll() async {
+    await Future.wait([
+      _loadAnalytics(),
+      _loadTransactions(),
+    ]);
+  }
+
   Future<void> _loadAnalytics() async {
-    setState(() => _isLoading = true);
-    final data = await _apiService.getAnalyticsSummary(timeRange: _selectedTimeRange);
-    if (mounted) {
-      setState(() {
-        _summary = data;
-        _isLoading = false;
-      });
+    if (!mounted) return;
+    setState(() {
+      _isLoadingSummary = true;
+      _summaryError = null;
+    });
+    try {
+      final data = await _apiService.getAnalyticsSummary(timeRange: _selectedTimeRange);
+      if (mounted) {
+        setState(() {
+          _summary = data;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _summaryError = e.toString().replaceAll('Exception:', '').trim();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSummary = false;
+        });
+      }
     }
   }
 
   Future<void> _loadTransactions() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingTransactions = true;
+      _transactionsError = null;
+    });
     try {
       final txs = await _apiService.getTransactions();
       if (mounted) {
@@ -67,7 +99,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         });
         _applyFilters();
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _transactionsError = e.toString().replaceAll('Exception:', '').trim();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingTransactions = false;
+        });
+      }
+    }
   }
 
   void _applyFilters() {
@@ -195,13 +239,69 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
           // Tab Content
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _activeSubTab == 0
-                    ? _buildSummaryView(isDark)
-                    : _buildHistoryView(isDark),
+            child: _activeSubTab == 0
+                ? (_isLoadingSummary
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    : _summaryError != null
+                        ? _buildErrorView(_summaryError!, _loadAnalytics, isDark)
+                        : _buildSummaryView(isDark))
+                : (_isLoadingTransactions
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    : _transactionsError != null
+                        ? _buildErrorView(_transactionsError!, _loadTransactions, isDark)
+                        : _buildHistoryView(isDark)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(String error, VoidCallback onRetry, bool isDark) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.sync_problem_rounded, color: Colors.red, size: 48),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal Memuat Data',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Muat Ulang'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -219,7 +319,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       onTap: () {
         setState(() => _activeSubTab = index);
         if (index == 1) {
-          _loadTransactions();
+          if (_allTransactions.isEmpty || _transactionsError != null) {
+            _loadTransactions();
+          }
+        } else if (index == 0) {
+          if (_summary == null || _summaryError != null) {
+            _loadAnalytics();
+          }
         }
       },
       borderRadius: BorderRadius.circular(10),
@@ -319,7 +425,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildSummaryView(bool isDark) {
     if (_summary == null) {
-      return const Center(child: Text('Data tidak tersedia'));
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.query_stats_rounded, size: 54, color: isDark ? Colors.white24 : Colors.grey.shade400),
+              const SizedBox(height: 14),
+              Text(
+                'Belum Ada Ringkasan Penjualan',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Lakukan transaksi kasir pertama untuk melihat ringkasan omset & grafik di sini.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: _loadAnalytics,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Muat Ulang'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final int maxDaily = (_summary != null && _summary!.dailySales.isNotEmpty)

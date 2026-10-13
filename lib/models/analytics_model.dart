@@ -13,10 +13,16 @@ class PaymentBreakdown {
 
   factory PaymentBreakdown.fromJson(Map<String, dynamic> json) {
     return PaymentBreakdown(
-      paymentType: json['payment_type']?.toString() ?? '',
-      totalAmount: (json['total_amount'] is num) ? (json['total_amount'] as num).toInt() : 0,
-      count: (json['count'] is num) ? (json['count'] as num).toInt() : 0,
-      percentage: (json['percentage'] is num) ? (json['percentage'] as num).toDouble() : 0.0,
+      paymentType: json['payment_type']?.toString() ?? 'TUNAI',
+      totalAmount: (json['total_amount'] is num)
+          ? (json['total_amount'] as num).toInt()
+          : int.tryParse(json['total_amount']?.toString() ?? '0') ?? 0,
+      count: (json['count'] is num)
+          ? (json['count'] as num).toInt()
+          : int.tryParse(json['count']?.toString() ?? '0') ?? 0,
+      percentage: (json['percentage'] is num)
+          ? (json['percentage'] as num).toDouble()
+          : double.tryParse(json['percentage']?.toString() ?? '0.0') ?? 0.0,
     );
   }
 
@@ -44,8 +50,12 @@ class DailySale {
   factory DailySale.fromJson(Map<String, dynamic> json) {
     return DailySale(
       date: json['date']?.toString() ?? '',
-      totalAmount: (json['total_amount'] is num) ? (json['total_amount'] as num).toInt() : 0,
-      orderCount: (json['order_count'] is num) ? (json['order_count'] as num).toInt() : 0,
+      totalAmount: (json['total_amount'] is num)
+          ? (json['total_amount'] as num).toInt()
+          : int.tryParse(json['total_amount']?.toString() ?? '0') ?? 0,
+      orderCount: (json['order_count'] is num)
+          ? (json['order_count'] as num).toInt()
+          : int.tryParse(json['order_count']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -77,12 +87,32 @@ class AnalyticsSummary {
     var rawPayments = json['payment_methods'] as List<dynamic>? ?? [];
     var rawDaily = json['daily_sales'] as List<dynamic>? ?? [];
 
+    final paymentsList = <PaymentBreakdown>[];
+    for (var p in rawPayments) {
+      if (p is Map) {
+        paymentsList.add(PaymentBreakdown.fromJson(Map<String, dynamic>.from(p)));
+      }
+    }
+
+    final dailyList = <DailySale>[];
+    for (var d in rawDaily) {
+      if (d is Map) {
+        dailyList.add(DailySale.fromJson(Map<String, dynamic>.from(d)));
+      }
+    }
+
     return AnalyticsSummary(
-      totalRevenue: (json['total_revenue'] is num) ? (json['total_revenue'] as num).toInt() : 0,
-      totalOrders: (json['total_orders'] is num) ? (json['total_orders'] as num).toInt() : 0,
-      averageOrderValue: (json['average_order_value'] is num) ? (json['average_order_value'] as num).toInt() : 0,
-      paymentMethods: rawPayments.map((p) => PaymentBreakdown.fromJson(p as Map<String, dynamic>)).toList(),
-      dailySales: rawDaily.map((d) => DailySale.fromJson(d as Map<String, dynamic>)).toList(),
+      totalRevenue: (json['total_revenue'] is num)
+          ? (json['total_revenue'] as num).toInt()
+          : int.tryParse(json['total_revenue']?.toString() ?? '0') ?? 0,
+      totalOrders: (json['total_orders'] is num)
+          ? (json['total_orders'] as num).toInt()
+          : int.tryParse(json['total_orders']?.toString() ?? '0') ?? 0,
+      averageOrderValue: (json['average_order_value'] is num)
+          ? (json['average_order_value'] as num).toInt()
+          : int.tryParse(json['average_order_value']?.toString() ?? '0') ?? 0,
+      paymentMethods: paymentsList,
+      dailySales: dailyList,
     );
   }
 

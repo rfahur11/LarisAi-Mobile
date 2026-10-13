@@ -52,3 +52,5 @@ app.*.map.json
 # Local databases and temporary captures
 *.db
 test_device_capture.png
+product_images/*
+!product_images/.gitkeep

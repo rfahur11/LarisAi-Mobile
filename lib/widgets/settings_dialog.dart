@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -18,6 +19,7 @@ import '../services/local_host_server_service.dart';
 import '../services/store_profile_service.dart';
 import '../services/cloud_health_service.dart';
 import '../services/excel_import_service.dart';
+import '../services/data_migration_service.dart';
 import 'bulk_import_dialog.dart';
 import 'saas_payment_sheet.dart';
 
@@ -61,6 +63,35 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   bool _isTestingLan = false;
   String? _lanTestStatus;
   String? _lanTestMessage;
+
+  // In-Dialog Reactive Notification Banner
+  String? _dialogNotificationMessage;
+  Color _dialogNotificationColor = AppColors.primary;
+  IconData _dialogNotificationIcon = Icons.check_circle_rounded;
+  Timer? _dialogNotificationTimer;
+
+  void showDialogNotification(
+    String message, {
+    Color? color,
+    IconData? icon,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    _dialogNotificationTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _dialogNotificationMessage = message;
+      _dialogNotificationColor = color ?? AppColors.primary;
+      _dialogNotificationIcon = icon ?? Icons.check_circle_outline_rounded;
+    });
+
+    _dialogNotificationTimer = Timer(duration, () {
+      if (mounted) {
+        setState(() {
+          _dialogNotificationMessage = null;
+        });
+      }
+    });
+  }
 
   Future<void> _testLanConnection(String targetUrl, [String? clusterToken]) async {
     if (targetUrl.trim().isEmpty) return;
@@ -135,6 +166,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   @override
   void dispose() {
+    _dialogNotificationTimer?.cancel();
     _tabController.dispose();
     _posController.dispose();
     _aiController.dispose();
@@ -347,12 +379,10 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Profil Toko & UMKM berhasil disimpan!'),
-          backgroundColor: AppColors.primary,
-          duration: Duration(seconds: 2),
-        ),
+      showDialogNotification(
+        'Profil Toko & UMKM berhasil disimpan!',
+        color: AppColors.primary,
+        icon: Icons.check_circle_rounded,
       );
     }
   }
@@ -1643,6 +1673,51 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 14),
+                  Divider(color: isDark ? AppColors.darkBorder : Colors.grey.shade200),
+                  const SizedBox(height: 8),
+
+                  // Section: Cross-Mode Data Migration
+                  Row(
+                    children: [
+                      Icon(Icons.sync_alt_rounded, size: 16, color: isDark ? Colors.indigo.shade300 : Colors.indigo.shade700),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Migrasi Data Antar-Mode (Offline ⇄ Cloud)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.indigo.shade200 : Colors.indigo.shade900,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pindahkan data katalog & transaksi antara Mode Offline (Lifetime SQLite) dan Akun Cloud SaaS toko Anda.',
+                    style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildActionButton(
+                    icon: Icons.cloud_upload_rounded,
+                    color: Colors.indigo.shade700,
+                    title: 'Migrasikan Data Offline ➔ Cloud SaaS',
+                    subtitle: 'Unggah seluruh katalog & riwayat transaksi SQLite offline ke Cloud',
+                    onTap: () => _showMigrationPreFlightDialog(context, MigrationDirection.lifetimeToCloud),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildActionButton(
+                    icon: Icons.cloud_download_rounded,
+                    color: Colors.teal.shade700,
+                    title: 'Sinkronkan Data Cloud ➔ Offline Lokal',
+                    subtitle: 'Unduh seluruh data Cloud ke penyimpanan SQLite lokal perangkat ini',
+                    onTap: () => _showMigrationPreFlightDialog(context, MigrationDirection.cloudToLifetime),
+                  ),
                 ],
               ),
             ),
@@ -2116,32 +2191,20 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 final savedPath = await ExcelImportService.instance.downloadOrShareTemplate();
                 if (!mounted) return;
                 if (savedPath != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        Platform.isWindows
-                            ? 'Template berhasil disimpan di: $savedPath'
-                            : 'Template Excel siap diedit atau dibagikan.',
-                      ),
-                      backgroundColor: Colors.blue.shade700,
-                      behavior: SnackBarBehavior.floating,
-                      action: Platform.isWindows
-                          ? SnackBarAction(
-                              label: 'Buka Folder',
-                              textColor: Colors.white,
-                              onPressed: () => ExportService.instance.openInExplorer(savedPath),
-                            )
-                          : null,
-                    ),
+                  showDialogNotification(
+                    Platform.isWindows
+                        ? 'Template berhasil disimpan di: $savedPath'
+                        : 'Template Excel siap diedit atau dibagikan.',
+                    color: Colors.blue.shade700,
+                    icon: Icons.check_circle_rounded,
                   );
                 }
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Gagal menyiapkan template: $e'),
-                    backgroundColor: Colors.red,
-                  ),
+                showDialogNotification(
+                  'Gagal menyiapkan template: $e',
+                  color: Colors.red,
+                  icon: Icons.error_outline_rounded,
                 );
               }
             },
@@ -2181,29 +2244,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               try {
                 final result = await ExportService.instance.exportTransactionsExcel();
                 if (mounted && result.success && result.filePath != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Laporan Excel (.xlsx) berhasil disimpan!\n${result.filePath}'),
-                      backgroundColor: Colors.green.shade800,
-                      duration: const Duration(seconds: 4),
-                      action: ExportService.instance.isDesktopPlatform
-                          ? SnackBarAction(
-                              label: 'Buka File',
-                              textColor: Colors.white,
-                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
-                            )
-                          : null,
-                    ),
+                  showDialogNotification(
+                    'Laporan Excel (.xlsx) tersimpan di:\n${result.filePath}',
+                    color: Colors.green.shade800,
+                    icon: Icons.check_circle_rounded,
                   );
                 } else if (mounted && !result.isCancelled && result.message != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    result.message!,
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal ekspor Excel: $e'), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    'Gagal ekspor Excel: $e',
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               }
@@ -2223,29 +2281,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               try {
                 final result = await ExportService.instance.exportInventoryExcel();
                 if (mounted && result.success && result.filePath != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Katalog Excel (.xlsx) berhasil disimpan!\n${result.filePath}'),
-                      backgroundColor: Colors.teal.shade800,
-                      duration: const Duration(seconds: 4),
-                      action: ExportService.instance.isDesktopPlatform
-                          ? SnackBarAction(
-                              label: 'Buka File',
-                              textColor: Colors.white,
-                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
-                            )
-                          : null,
-                    ),
+                  showDialogNotification(
+                    'Katalog Excel (.xlsx) tersimpan di:\n${result.filePath}',
+                    color: Colors.teal.shade800,
+                    icon: Icons.check_circle_rounded,
                   );
                 } else if (mounted && !result.isCancelled && result.message != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    result.message!,
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal ekspor Excel: $e'), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    'Gagal ekspor Excel: $e',
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               }
@@ -2263,29 +2316,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               try {
                 final result = await ExportService.instance.exportTransactionsCsv();
                 if (mounted && result.success && result.filePath != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ Laporan CSV berhasil disimpan!\n${result.filePath}'),
-                      backgroundColor: Colors.blueGrey.shade700,
-                      duration: const Duration(seconds: 4),
-                      action: ExportService.instance.isDesktopPlatform
-                          ? SnackBarAction(
-                              label: 'Buka Folder',
-                              textColor: Colors.white,
-                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
-                            )
-                          : null,
-                    ),
+                  showDialogNotification(
+                    'Laporan CSV berhasil disimpan di:\n${result.filePath}',
+                    color: Colors.blueGrey.shade700,
+                    icon: Icons.check_circle_rounded,
                   );
                 } else if (mounted && !result.isCancelled && result.message != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    result.message!,
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal ekspor: $e'), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    'Gagal ekspor CSV: $e',
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               }
@@ -2313,21 +2361,24 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
           const SizedBox(height: 12),
 
-          // Button 3: Full Backup JSON (Save to Local Folder on Desktop)
+          // Button 3: Full Backup ZIP (Data + Images)
           _buildActionButton(
-            icon: Icons.cloud_download_rounded,
+            icon: Icons.folder_zip_rounded,
             color: Colors.purple.shade700,
-            title: 'Cadangkan Database Lengkap (.json)',
-            subtitle: ExportService.instance.isDesktopPlatform
-                ? 'Pilih direktori lokal di PC untuk menyimpan file cadangan'
-                : 'Cadangkan seluruh tabel transaksi, stok, dan pelanggan',
+            title: 'Cadangkan Penuh (.zip: Data + Foto)',
+            subtitle: 'Bundel database transaksi, inventori, dan seluruh foto produk dalam satu arsip .zip',
             onTap: () async {
               try {
-                final result = await ExportService.instance.exportFullBackupJson();
+                final result = await ExportService.instance.exportFullBackupZip();
                 if (mounted && result.success && result.filePath != null) {
+                  showDialogNotification(
+                    'Cadangan penuh berhasil disimpan di:\n${result.filePath}',
+                    color: Colors.purple.shade700,
+                    icon: Icons.check_circle_rounded,
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Cadangan database tersimpan!\n${result.filePath}'),
+                      content: Text('✅ Cadangan penuh tersimpan!\n${result.filePath}'),
                       backgroundColor: Colors.purple.shade700,
                       duration: const Duration(seconds: 4),
                       action: ExportService.instance.isDesktopPlatform
@@ -2340,14 +2391,18 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     ),
                   );
                 } else if (mounted && !result.isCancelled && result.message != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result.message!), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    result.message!,
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal backup: $e'), backgroundColor: Colors.red),
+                  showDialogNotification(
+                    'Gagal backup ZIP: $e',
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
                   );
                 }
               }
@@ -2355,12 +2410,61 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
           const SizedBox(height: 8),
 
-          // Button 4: Restore Backup from JSON
+          // Button 3B: Full Backup JSON Only
+          _buildActionButton(
+            icon: Icons.cloud_download_rounded,
+            color: Colors.indigo.shade600,
+            title: 'Cadangkan Data Teks Saja (.json)',
+            subtitle: 'Hanya mencadangkan teks tabel transaksi, stok, dan pelanggan tanpa menyertakan foto',
+            onTap: () async {
+              try {
+                final result = await ExportService.instance.exportFullBackupJson();
+                if (mounted && result.success && result.filePath != null) {
+                  showDialogNotification(
+                    'Cadangan database JSON tersimpan di:\n${result.filePath}',
+                    color: Colors.indigo.shade600,
+                    icon: Icons.check_circle_rounded,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Cadangan database JSON tersimpan!\n${result.filePath}'),
+                      backgroundColor: Colors.indigo.shade600,
+                      duration: const Duration(seconds: 4),
+                      action: ExportService.instance.isDesktopPlatform
+                          ? SnackBarAction(
+                              label: 'Buka Folder',
+                              textColor: Colors.white,
+                              onPressed: () => ExportService.instance.openInExplorer(result.filePath!),
+                            )
+                          : null,
+                    ),
+                  );
+                } else if (mounted && !result.isCancelled && result.message != null) {
+                  showDialogNotification(
+                    result.message!,
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  showDialogNotification(
+                    'Gagal backup JSON: $e',
+                    color: Colors.red,
+                    icon: Icons.error_outline_rounded,
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // Button 4: Restore Backup (.zip / .json)
           _buildActionButton(
             icon: Icons.settings_backup_restore_rounded,
             color: Colors.teal.shade700,
-            title: 'Pulihkan Database dari File (.json)',
-            subtitle: 'Pilih file backup .json dari komputer/HP untuk memulihkan transaksi & produk',
+            title: 'Pulihkan Database (.zip / .json)',
+            subtitle: 'Mendukung pemulihan arsip paket .zip (data + foto) atau file .json cadangan lama',
             onTap: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
@@ -2382,7 +2486,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     ],
                   ),
                   content: Text(
-                    'Pemulihan database akan mengganti seluruh katalog produk, stok, dan riwayat transaksi saat ini dengan data yang ada di dalam file cadangan (.json).\n\nApakah Anda yakin ingin melanjutkan?',
+                    'Pemulihan database akan mengganti seluruh katalog produk, foto, dan riwayat transaksi saat ini dengan data dari file cadangan yang Anda pilih (.zip / .json).\n\nApakah Anda yakin ingin melanjutkan?',
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
@@ -2427,26 +2531,37 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   final counts = res['counts'] as Map<String, int>? ?? {};
                   final prodCount = counts['products_restored'] ?? 0;
                   final txCount = counts['transactions_restored'] ?? 0;
+                  final imgCount = counts['images'] ?? 0;
                   final fileName = res['name']?.toString() ?? 'file';
 
+                  final imgInfo = imgCount > 0 ? ', $imgCount foto' : '';
+                  final successMsg = 'Berhasil memulihkan database dari $fileName! ($prodCount produk, $txCount transaksi$imgInfo)';
+                  showDialogNotification(
+                    successMsg,
+                    color: Colors.teal.shade700,
+                    icon: Icons.check_circle_rounded,
+                  );
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text('✅ Berhasil memulihkan database dari $fileName! ($prodCount produk, $txCount transaksi)'),
+                      content: Text('✅ $successMsg'),
                       backgroundColor: Colors.teal.shade700,
                       duration: const Duration(seconds: 4),
                     ),
                   );
                 } else if (mounted) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('ℹ️ Pemulihan dibatalkan (tidak ada file dipilih).'),
-                      backgroundColor: Colors.blueGrey,
-                      duration: Duration(seconds: 2),
-                    ),
+                  showDialogNotification(
+                    'Pemulihan dibatalkan (tidak ada file dipilih).',
+                    color: Colors.blueGrey,
+                    icon: Icons.info_outline_rounded,
                   );
                 }
               } catch (e) {
                 if (mounted) {
+                  showDialogNotification(
+                    'Gagal memulihkan database: $e',
+                    color: Colors.red.shade700,
+                    icon: Icons.error_outline_rounded,
+                  );
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text('❌ Gagal memulihkan database: $e'),
@@ -2474,7 +2589,64 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             ),
             const SizedBox(height: 8),
           ],
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 8),
+          // --- Cross-Mode Data Migration Section ---
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.teal.shade900.withValues(alpha: 0.18) : Colors.teal.shade50.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? Colors.teal.shade800 : Colors.teal.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, color: isDark ? Colors.teal.shade300 : Colors.teal.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Migrasi Data 2 Arah (Lifetime ⇄ Cloud SaaS)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.teal.shade200 : Colors.teal.shade900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sinkronkan data offline SQLite dengan akun Cloud SaaS secara aman dan non-destructive.',
+                  style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                ),
+                const SizedBox(height: 10),
+                _buildActionButton(
+                  icon: Icons.cloud_upload_rounded,
+                  color: Colors.indigo.shade700,
+                  title: 'Migrasikan Data Offline ➔ Cloud SaaS',
+                  subtitle: 'Unggah seluruh katalog & riwayat transaksi SQLite offline ke Cloud',
+                  onTap: () => _showMigrationPreFlightDialog(context, MigrationDirection.lifetimeToCloud),
+                ),
+                const SizedBox(height: 8),
+                _buildActionButton(
+                  icon: Icons.cloud_download_rounded,
+                  color: Colors.teal.shade700,
+                  title: 'Sinkronkan Data Cloud ➔ Offline Lokal',
+                  subtitle: 'Unduh seluruh data Cloud ke penyimpanan SQLite lokal perangkat ini',
+                  onTap: () => _showMigrationPreFlightDialog(context, MigrationDirection.cloudToLifetime),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          const SizedBox(height: 8),
           Divider(color: isDark ? AppColors.darkBorder : null),
           const SizedBox(height: 8),
 
@@ -2666,8 +2838,10 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               onPressed: () async {
                 final key = _licenseController.text.trim();
                 if (key.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Silakan masukkan Serial Key lisensi.'), backgroundColor: Colors.orange),
+                  showDialogNotification(
+                    'Silakan masukkan Serial Key lisensi.',
+                    color: Colors.orange.shade800,
+                    icon: Icons.warning_amber_rounded,
                   );
                   return;
                 }
@@ -2677,14 +2851,18 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                   await _loadLicense();
                   _licenseController.clear();
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('🎉 Lisensi berhasil diaktifkan secara permanen!'), backgroundColor: Colors.green),
+                    showDialogNotification(
+                      '🎉 Lisensi berhasil diaktifkan secara permanen!',
+                      color: Colors.green.shade700,
+                      icon: Icons.check_circle_rounded,
                     );
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Gagal aktivasi: $e'), backgroundColor: Colors.red),
+                    showDialogNotification(
+                      'Gagal aktivasi: $e',
+                      color: Colors.red.shade700,
+                      icon: Icons.error_outline_rounded,
                     );
                   }
                 }
@@ -2820,9 +2998,367 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     );
   }
 
+  Future<void> _showMigrationPreFlightDialog(BuildContext context, MigrationDirection direction) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    bool clearExistingOffline = false;
+    bool isInspecting = true;
+    MigrationInspectionResult? inspection;
+
+    await showDialog(
+      context: context,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            if (isInspecting && inspection == null) {
+              DataMigrationService.instance.inspectDataSources().then((res) {
+                if (ctx.mounted) {
+                  setModalState(() {
+                    inspection = res;
+                    isInspecting = false;
+                  });
+                }
+              });
+            }
+
+            final isUpload = direction == MigrationDirection.lifetimeToCloud;
+            final title = isUpload
+                ? 'Migrasi Data: Offline ➔ Cloud SaaS'
+                : 'Sinkronisasi Data: Cloud SaaS ➔ Offline';
+            final themeColor = isUpload ? Colors.indigo.shade700 : Colors.teal.shade700;
+
+            return AlertDialog(
+              backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: isDark ? 0.25 : 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isUpload ? Icons.cloud_upload_rounded : Icons.cloud_download_rounded,
+                      color: themeColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 420,
+                child: isInspecting
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Memeriksa data lokal & akun cloud...', style: TextStyle(fontSize: 11.5)),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (inspection?.isCloudAuthenticated != true) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: isDark ? 0.2 : 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Akun Cloud belum terhubung. Silakan login ke akun toko di Tab "Mode Server" terlebih dahulu.',
+                                      style: TextStyle(fontSize: 11, color: isDark ? Colors.amber.shade200 : Colors.amber.shade900),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ] else ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Target Akun Cloud:', style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                                      Text(
+                                        'Store ID: ${inspection?.storeId.isNotEmpty == true ? inspection!.storeId : "-"}',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMain : AppColors.textMain),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Data Offline SQLite:', style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                                      Text(
+                                        '${inspection?.localProductsCount ?? 0} Produk | ${inspection?.localTransactionsCount ?? 0} Trx',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Data Cloud SaaS:', style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                                      Text(
+                                        '${inspection?.cloudProductsCount ?? 0} Produk | ${inspection?.cloudTransactionsCount ?? 0} Trx',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          Text(
+                            isUpload
+                                ? '• Seluruh katalog produk dan transaksi offline akan diunggah ke database Cloud toko Anda.\n• Database offline lokal tetap utuh dan tersimpan aman (non-destructive backup).\n• Produk dengan barcode/nama yang sama akan otomatis direkonsiliasi.'
+                                : '• Data katalog produk dan riwayat transaksi dari akun Cloud akan diunduh dan disimpan ke database SQLite offline HP ini.',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              height: 1.4,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                            ),
+                          ),
+                          if (!isUpload && inspection?.isCloudAuthenticated == true) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: clearExistingOffline
+                                    ? Colors.red.withValues(alpha: isDark ? 0.2 : 0.08)
+                                    : (isDark ? AppColors.darkSurface : Colors.grey.shade50),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: clearExistingOffline ? Colors.redAccent : (isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                                ),
+                              ),
+                              child: CheckboxListTile(
+                                value: clearExistingOffline,
+                                dense: true,
+                                activeColor: Colors.red.shade700,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                title: Text(
+                                  'Timpa Bersih Data Offline (Clean Slate)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: clearExistingOffline ? Colors.red.shade700 : (isDark ? AppColors.darkTextMain : AppColors.textMain),
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Hapus seluruh produk & transaksi offline lama sebelum menyimpan data Cloud (Default: uncheck untuk gabung/upsert)',
+                                  style: TextStyle(fontSize: 9.5, color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+                                ),
+                                onChanged: (val) {
+                                  setModalState(() {
+                                    clearExistingOffline = val ?? false;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dlgCtx),
+                  child: Text('Batal', style: TextStyle(color: isDark ? AppColors.darkTextMuted : AppColors.textMuted)),
+                ),
+                if (!isInspecting && inspection?.isCloudAuthenticated == true)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: Icon(isUpload ? Icons.upload_rounded : Icons.download_rounded, size: 16),
+                    label: Text(isUpload ? 'Mulai Unggah ke Cloud' : 'Mulai Unduh ke Offline'),
+                    onPressed: () {
+                      Navigator.pop(dlgCtx);
+                      _executeMigrationWithProgress(
+                        context,
+                        direction,
+                        clearExistingOffline: clearExistingOffline,
+                      );
+                    },
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _executeMigrationWithProgress(
+    BuildContext context,
+    MigrationDirection direction, {
+    bool clearExistingOffline = false,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isUpload = direction == MigrationDirection.lifetimeToCloud;
+
+    // Show Non-dismissible Progress Modal
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (progressCtx) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            backgroundColor: isDark ? AppColors.darkCard : AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(
+                  isUpload ? Icons.cloud_upload_rounded : Icons.cloud_download_rounded,
+                  color: isUpload ? Colors.indigo.shade700 : Colors.teal.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isUpload ? 'Mengunggah Data ke Cloud...' : 'Menyinkronkan Data Cloud...',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: ValueListenableBuilder<MigrationProgress>(
+              valueListenable: DataMigrationService.instance.progress,
+              builder: (ctx, prog, _) {
+                final pctVal = prog.percentage.clamp(0.0, 1.0);
+                final pctText = (pctVal * 100).toInt();
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LinearProgressIndicator(
+                      value: pctVal,
+                      backgroundColor: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isUpload ? Colors.indigo.shade700 : Colors.teal.shade700,
+                      ),
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            prog.currentPhase,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '$pctText%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isUpload ? Colors.indigo.shade700 : Colors.teal.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (prog.totalItems > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Item terproses: ${prog.processedItems} dari ${prog.totalItems}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    // Run migration
+    MigrationSummaryResult result;
+    if (direction == MigrationDirection.lifetimeToCloud) {
+      result = await DataMigrationService.instance.migrateLifetimeToCloud();
+    } else {
+      result = await DataMigrationService.instance.migrateCloudToLifetime(
+        clearExistingOffline: clearExistingOffline,
+      );
+    }
+
+    // Dismiss progress dialog & refresh
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    try {
+      final posProv = Provider.of<PosProvider>(context, listen: false);
+      posProv.loadProducts();
+      posProv.loadSummary();
+      final aiProv = Provider.of<AiProvider>(context, listen: false);
+      aiProv.loadAiData();
+    } catch (_) {}
+
+    showDialogNotification(
+      result.message,
+      color: result.success ? (isUpload ? Colors.indigo.shade700 : Colors.teal.shade700) : Colors.red.shade700,
+      icon: result.success ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
   Future<void> _confirmResetTransactions(BuildContext context) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final messenger = ScaffoldMessenger.of(context);
     final posProvider = Provider.of<PosProvider>(context, listen: false);
     final aiProvider = Provider.of<AiProvider>(context, listen: false);
 
@@ -2913,27 +3449,18 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         await posProvider.clearTransactions();
         await aiProvider.loadAiData();
 
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              backupPath != null
-                  ? '✅ Riwayat transaksi dibersihkan! Omset kembali Rp 0.\nCadangan aman: ${backupPath.split(Platform.isWindows ? '\\' : '/').last}'
-                  : '✅ Riwayat transaksi berhasil dibersihkan! Omset kembali ke Rp 0.',
-            ),
-            backgroundColor: Colors.green.shade700,
-            duration: const Duration(seconds: 4),
-            action: backupPath != null && ExportService.instance.isDesktopPlatform
-                ? SnackBarAction(
-                    label: 'Buka Cadangan',
-                    textColor: Colors.white,
-                    onPressed: () => ExportService.instance.openInExplorer(backupPath),
-                  )
-                : null,
-          ),
+        showDialogNotification(
+          backupPath != null
+              ? '✅ Riwayat transaksi dibersihkan! Omset kembali Rp 0.\nCadangan aman: ${backupPath.split(Platform.isWindows ? '\\' : '/').last}'
+              : '✅ Riwayat transaksi berhasil dibersihkan! Omset kembali ke Rp 0.',
+          color: Colors.green.shade700,
+          icon: Icons.check_circle_rounded,
         );
       } catch (e) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Gagal reset transaksi: $e'), backgroundColor: Colors.red),
+        showDialogNotification(
+          'Gagal reset transaksi: $e',
+          color: Colors.red.shade700,
+          icon: Icons.error_outline_rounded,
         );
       }
     }
@@ -2941,7 +3468,6 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   Future<void> _confirmFactoryReset(BuildContext context) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final messenger = ScaffoldMessenger.of(context);
     final posProvider = Provider.of<PosProvider>(context, listen: false);
     final aiProvider = Provider.of<AiProvider>(context, listen: false);
     final confirmController = TextEditingController();
@@ -3045,23 +3571,20 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         await posProvider.factoryResetDatabase(reseedStarterProducts: false);
         await aiProvider.loadAiData();
 
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('✅ Database berhasil di-reset total! Produk & transaksi telah dikosongkan.'),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 4),
-            action: backupPath != null && ExportService.instance.isDesktopPlatform
-                ? SnackBarAction(
-                    label: 'Buka Cadangan',
-                    textColor: Colors.white,
-                    onPressed: () => ExportService.instance.openInExplorer(backupPath),
-                  )
-                : null,
-          ),
+        final msg = backupPath != null
+            ? '✅ Database di-reset total! Salinan cadangan otomatis disimpan ke: $backupPath'
+            : '✅ Database berhasil di-reset total! Produk & transaksi telah dikosongkan.';
+
+        showDialogNotification(
+          msg,
+          color: Colors.red.shade700,
+          icon: Icons.check_circle_rounded,
         );
       } catch (e) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Gagal reset pabrik: $e'), backgroundColor: Colors.red),
+        showDialogNotification(
+          'Gagal reset pabrik: $e',
+          color: Colors.red.shade700,
+          icon: Icons.error_outline_rounded,
         );
       }
     }
@@ -3235,6 +3758,54 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               ],
             ),
           ),
+          if (_dialogNotificationMessage != null) ...[
+            const SizedBox(height: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _dialogNotificationColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _dialogNotificationColor.withValues(alpha: 0.6),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(_dialogNotificationIcon, color: _dialogNotificationColor, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _dialogNotificationMessage!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      _dialogNotificationTimer?.cancel();
+                      setState(() => _dialogNotificationMessage = null);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
       content: SizedBox(

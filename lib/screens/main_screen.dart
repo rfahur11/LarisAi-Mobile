@@ -110,11 +110,13 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
-  final List<Widget> _screens = const [
-    PosScreen(),
-    InventoryScreen(),
-    AiInsightsScreen(),
-    AnalyticsScreen(),
+  final GlobalKey<AnalyticsScreenState> _analyticsKey = GlobalKey<AnalyticsScreenState>();
+
+  late final List<Widget> _screens = [
+    const PosScreen(),
+    const InventoryScreen(),
+    const AiInsightsScreen(),
+    AnalyticsScreen(key: _analyticsKey),
   ];
 
   void _onTabSelected(int idx) {
@@ -129,6 +131,7 @@ class _MainScreenState extends State<MainScreen> {
       aiProvider.loadAiData();
     } else if (idx == 3) {
       posProvider.loadSummary();
+      _analyticsKey.currentState?.reloadAll();
     }
   }
 

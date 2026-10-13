@@ -65,7 +65,8 @@ flowchart TD
 | Modul / Komponen | File Target Utama | Tanggung Jawab & Implementasi |
 | :--- | :--- | :--- |
 | **App Entrypoint** | `lib/main.dart` | Inisialisasi dependency, window manager (Desktop), provider binding. |
-| **Settings & Mode Switcher** | `lib/widgets/settings_dialog.dart` | Modal pop-up 5 tab, pemilihan `ConnectionMode`, accordion login/register SaaS, in-dialog status feedback banner. |
+| **Settings & Mode Switcher** | `lib/widgets/settings_dialog.dart` | Modal pop-up 5 tab, pemilihan `ConnectionMode`, accordion login/register SaaS, in-dialog status feedback banner, pre-flight migration modal. |
+| **Cross-Mode Data Migration** | `lib/services/data_migration_service.dart` | Migrasi data 2 arah (Lifetime SQLite ⇄ Cloud SaaS), batch upload chunking (50 items), atomic SQLite transaction rollback, Option B clean-slate delete. |
 | **State Provider POS** | `lib/providers/pos_provider.dart` | Logic keranjang belanja, kalkulasi subtotal/kembalian, switch mode operasional, sinkronisasi produk. |
 | **Auth & Session Service** | `lib/services/auth_service.dart` | Registrasi toko cloud (`registerMerchant`), login JWT (`login`), status lisensi & masa trial 14 hari, error capture `lastError`. |
 | **Network REST Client** | `lib/services/api_service.dart` | HTTP client `Dio`, interceptor bearer token, timeout handling, isolasi database multi-tenant (*Anti-Illusion Guard*). |

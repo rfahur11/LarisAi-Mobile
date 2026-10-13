@@ -17,9 +17,15 @@ class TransactionItem {
     return TransactionItem(
       productId: json['product_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      price: (json['price'] is num) ? (json['price'] as num).toInt() : 0,
-      quantity: (json['quantity'] is num) ? (json['quantity'] as num).toInt() : 1,
-      subtotal: (json['subtotal'] is num) ? (json['subtotal'] as num).toInt() : 0,
+      price: (json['price'] is num)
+          ? (json['price'] as num).toInt()
+          : int.tryParse(json['price']?.toString() ?? '0') ?? 0,
+      quantity: (json['quantity'] is num)
+          ? (json['quantity'] as num).toInt()
+          : int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
+      subtotal: (json['subtotal'] is num)
+          ? (json['subtotal'] as num).toInt()
+          : int.tryParse(json['subtotal']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -59,15 +65,20 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     var rawItems = json['items'] as List<dynamic>? ?? [];
-    List<TransactionItem> items = rawItems
-        .map((i) => TransactionItem.fromJson(i as Map<String, dynamic>))
-        .toList();
+    final items = <TransactionItem>[];
+    for (var i in rawItems) {
+      if (i is Map) {
+        items.add(TransactionItem.fromJson(Map<String, dynamic>.from(i)));
+      }
+    }
 
     return Transaction(
       id: json['id']?.toString() ?? '',
       invoiceNo: json['invoice_no']?.toString() ?? 'INV-${DateTime.now().millisecondsSinceEpoch}',
       customerId: json['customer_id']?.toString() ?? '',
-      totalAmount: (json['total_amount'] is num) ? (json['total_amount'] as num).toInt() : 0,
+      totalAmount: (json['total_amount'] is num)
+          ? (json['total_amount'] as num).toInt()
+          : int.tryParse(json['total_amount']?.toString() ?? '0') ?? 0,
       paymentType: json['payment_type']?.toString() ?? 'TUNAI',
       status: json['status']?.toString() ?? 'COMPLETED',
       createdAt: json['created_at'] != null 

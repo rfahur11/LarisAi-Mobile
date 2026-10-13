@@ -30,13 +30,16 @@ class LanConnectionException implements Exception {
 }
 
 class ApiService {
+  static final ApiService instance = ApiService._internal();
+  factory ApiService() => instance;
+
   late Dio _posDio;
   late Dio _aiDio;
   final LocalDbService _localDb = LocalDbService.instance;
 
   bool get _useLocalDb => ApiConstants.isOfflineMode || LocalHostServerService.instance.isRunning.value;
 
-  ApiService() {
+  ApiService._internal() {
     _posDio = Dio(BaseOptions(
       baseUrl: ApiConstants.posBaseUrl,
       connectTimeout: const Duration(seconds: 8),
@@ -612,7 +615,7 @@ class ApiService {
         return AnalyticsSummary.fromJson(response.data);
       }
     } on DioException catch (e) {
-      throw LanConnectionException('Gagal membatalkan transaksi dari Host LAN: ${e.message}');
+      throw LanConnectionException('Gagal memuat analitik dari Host LAN: ${e.message}');
     }
     return AnalyticsSummary(
       totalRevenue: 0,

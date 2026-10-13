@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
+import 'image_storage_service.dart';
 import 'local_db_service.dart';
 
 class ExportResult {
@@ -395,6 +399,73 @@ class ExportService {
     }
   }
 
+  // --- EXPORT FULL BACKUP ZIP (DATA JSON + FOTO PRODUK) ---
+  Future<ExportResult> exportFullBackupZip({bool chooseLocalFolder = false}) async {
+    final dateOnly = DateFormat('yyyyMMdd_HHmm');
+    final fileName = 'LarisAI_Full_Backup_${dateOnly.format(DateTime.now())}.zip';
+
+    try {
+      final archive = Archive();
+
+      // 1. Tambahkan data JSON
+      final jsonContent = await generateBackupJsonString();
+      final jsonBytes = utf8.encode(jsonContent);
+      archive.addFile(ArchiveFile('larisai_data.json', jsonBytes.length, jsonBytes));
+
+      // 2. Tambahkan seluruh foto produk dari folder lokal
+      final imgDirPath = await ImageStorageService.instance.getImageDirectoryPath();
+      final imgDir = Directory(imgDirPath);
+      int imgCount = 0;
+
+      if (await imgDir.exists()) {
+        final fileEntities = imgDir.listSync(recursive: false);
+        for (var entity in fileEntities) {
+          if (entity is File) {
+            final baseName = p.basename(entity.path);
+            final lower = baseName.toLowerCase();
+            if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp')) {
+              try {
+                final fileBytes = await entity.readAsBytes();
+                archive.addFile(ArchiveFile('product_images/$baseName', fileBytes.length, fileBytes));
+                imgCount++;
+              } catch (e) {
+                debugPrint('⚠️ Skip archiving file $baseName: $e');
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Encode zip
+      final encoder = ZipEncoder();
+      final zipBytes = encoder.encode(archive);
+
+      if (zipBytes == null || zipBytes.isEmpty) {
+        return ExportResult(success: false, message: 'Gagal membuat arsip ZIP cadangan.');
+      }
+
+      final shareText = '💾 Cadangan Penuh LarisAI POS (Data + $imgCount Foto Produk) ($fileName)';
+
+      if (chooseLocalFolder || isDesktopPlatform) {
+        return await _saveBytesViaLocalDialog(
+          defaultFileName: fileName,
+          bytes: zipBytes,
+          extension: 'zip',
+          dialogTitle: 'Simpan Cadangan Penuh LarisAI (.zip)',
+        );
+      } else {
+        return await _saveBytesAndShare(
+          fileName: fileName,
+          bytes: zipBytes,
+          mimeType: 'application/zip',
+          shareText: shareText,
+        );
+      }
+    } catch (e) {
+      return ExportResult(success: false, message: 'Gagal mengekspor arsip cadangan ZIP: $e');
+    }
+  }
+
   // --- SAVE VIA NATIVE DIALOG (DESKTOP / LOCAL STORAGE) ---
   Future<ExportResult> _saveViaLocalDialog({
     required String defaultFileName,
@@ -543,12 +614,12 @@ class ExportService {
   }
 
   // --- RESTORE DATABASE ---
-  /// Membuka file picker untuk memilih file .json backup dari komputer / HP dan memulihkan database
+  /// Membuka file picker untuk memilih file .zip atau .json backup dari komputer / HP dan memulihkan database
   Future<Map<String, dynamic>?> pickAndRestoreBackup() async {
     final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Pilih File Cadangan LarisAI (.json)',
+      dialogTitle: 'Pilih File Cadangan LarisAI (.zip atau .json)',
       type: Platform.isAndroid ? FileType.any : FileType.custom,
-      allowedExtensions: Platform.isAndroid ? null : ['json'],
+      allowedExtensions: Platform.isAndroid ? null : ['zip', 'json'],
       withData: true,
     );
 
@@ -558,26 +629,79 @@ class ExportService {
 
     final platformFile = result.files.single;
     final fileName = platformFile.name.toLowerCase();
-    if (!fileName.endsWith('.json')) {
-      throw Exception('Format file harus berupa .json (Dipilih: ${platformFile.name})');
+    final isZip = fileName.endsWith('.zip');
+    final isJson = fileName.endsWith('.json');
+
+    if (!isZip && !isJson) {
+      throw Exception('Format file harus berupa .zip atau .json (Dipilih: ${platformFile.name})');
     }
 
-    String jsonContent;
-    if (platformFile.bytes != null && platformFile.bytes!.isNotEmpty) {
-      jsonContent = utf8.decode(platformFile.bytes!);
-    } else if (platformFile.path != null) {
+    List<int>? rawBytes = platformFile.bytes;
+    if ((rawBytes == null || rawBytes.isEmpty) && platformFile.path != null) {
       final file = File(platformFile.path!);
-      jsonContent = await file.readAsString(encoding: utf8);
-    } else {
+      if (await file.exists()) {
+        rawBytes = await file.readAsBytes();
+      }
+    }
+
+    if (rawBytes == null || rawBytes.isEmpty) {
       throw Exception('Tidak dapat membaca isi file cadangan yang dipilih.');
     }
 
-    final counts = await restoreFromJson(jsonContent);
+    Map<String, int> counts;
+    if (isZip) {
+      counts = await restoreFromZipBytes(rawBytes);
+    } else {
+      final jsonContent = utf8.decode(rawBytes);
+      counts = await restoreFromJson(jsonContent);
+    }
+
     return {
       'counts': counts,
       'name': platformFile.name,
       'path': platformFile.path ?? platformFile.name,
+      'is_zip': isZip,
     };
+  }
+
+  /// Restore Database and Product Images from ZIP Bytes
+  Future<Map<String, int>> restoreFromZipBytes(List<int> zipBytes) async {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    String? jsonContent;
+    int imgRestored = 0;
+
+    final imgDirPath = await ImageStorageService.instance.getImageDirectoryPath();
+    final imgDir = Directory(imgDirPath);
+    if (!await imgDir.exists()) {
+      await imgDir.create(recursive: true);
+    }
+
+    // 1. Ekstrak foto produk dan temukan data json
+    for (var file in archive) {
+      if (file.isFile) {
+        final normName = file.name.replaceAll('\\', '/');
+        if (normName == 'larisai_data.json' || (jsonContent == null && normName.endsWith('.json'))) {
+          jsonContent = utf8.decode(file.content as List<int>);
+        } else if (normName.startsWith('product_images/') || normName.startsWith('images/') ||
+            normName.endsWith('.png') || normName.endsWith('.jpg') || normName.endsWith('.jpeg') || normName.endsWith('.webp')) {
+          final fileName = p.basename(normName);
+          if (fileName.isNotEmpty) {
+            final destFile = File(p.join(imgDirPath, fileName));
+            await destFile.writeAsBytes(file.content as List<int>);
+            imgRestored++;
+          }
+        }
+      }
+    }
+
+    if (jsonContent == null) {
+      throw Exception('Arsip ZIP tidak memuat file database larisai_data.json.');
+    }
+
+    // 2. Pulihkan data tabel ke SQLite
+    final counts = await restoreFromJson(jsonContent);
+    counts['images'] = imgRestored;
+    return counts;
   }
 
   /// Restore Database from JSON String
@@ -621,6 +745,7 @@ class ExportService {
             'price': (item['price'] is num) ? (item['price'] as num).toInt() : int.tryParse(item['price']?.toString() ?? '0') ?? 0,
             'stock': (item['stock'] is num) ? (item['stock'] as num).toInt() : int.tryParse(item['stock']?.toString() ?? '0') ?? 0,
             'is_archived': (item['is_archived'] == 1 || item['is_archived'] == true) ? 1 : 0,
+            'image_path': item['image_path']?.toString() ?? '',
             'created_at': item['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': item['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
           };

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -65,12 +66,57 @@ class ImageStorageService {
     return null;
   }
 
-  /// Opens file picker to select an image, copies it to app storage, and returns the relative filename
+  /// Scales down image bytes to max dimension (default 800px) and converts to PNG
+  /// to save disk space, prevent memory OOM on mobile, and speed up backup/sync.
+  Future<Uint8List> compressImageBytes(Uint8List rawBytes, {int maxDimension = 800}) async {
+    try {
+      final buffer = await ui.ImmutableBuffer.fromUint8List(rawBytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      final origWidth = descriptor.width;
+      final origHeight = descriptor.height;
+      descriptor.dispose();
+      buffer.dispose();
+
+      // If already small in dimensions and under 250 KB, return as is
+      if (origWidth <= maxDimension && origHeight <= maxDimension && rawBytes.lengthInBytes <= 250 * 1024) {
+        return rawBytes;
+      }
+
+      int? targetW;
+      int? targetH;
+      if (origWidth >= origHeight) {
+        targetW = maxDimension;
+      } else {
+        targetH = maxDimension;
+      }
+
+      final codec = await ui.instantiateImageCodec(
+        rawBytes,
+        targetWidth: targetW,
+        targetHeight: targetH,
+      );
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      codec.dispose();
+      image.dispose();
+
+      if (byteData != null) {
+        return byteData.buffer.asUint8List();
+      }
+    } catch (e) {
+      debugPrint('[ImageStorageService] Image compression fallback: $e');
+    }
+    return rawBytes;
+  }
+
+  /// Opens file picker to select an image, compresses it, and saves to app storage
   Future<String?> pickAndSaveProductImage(String productId) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
 
       if (result == null || result.files.isEmpty) {
@@ -78,36 +124,29 @@ class ImageStorageService {
       }
 
       final pickedFile = result.files.single;
-      final originalPath = pickedFile.path;
-      final bytes = pickedFile.bytes;
+      Uint8List? rawBytes = pickedFile.bytes;
 
-      String ext = 'jpg';
-      if (pickedFile.extension != null && pickedFile.extension!.isNotEmpty) {
-        ext = pickedFile.extension!.toLowerCase();
-      } else if (originalPath != null) {
-        ext = p.extension(originalPath).replaceAll('.', '').toLowerCase();
-        if (ext.isEmpty) ext = 'jpg';
-      }
-
-      final sanitizedId = productId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-      final fileName = 'prod_${sanitizedId.isNotEmpty ? sanitizedId : "new"}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final dirPath = await getImageDirectoryPath();
-      final destinationFile = File(p.join(dirPath, fileName));
-
-      if (originalPath != null) {
-        final sourceFile = File(originalPath);
+      if ((rawBytes == null || rawBytes.isEmpty) && pickedFile.path != null) {
+        final sourceFile = File(pickedFile.path!);
         if (await sourceFile.exists()) {
-          await sourceFile.copy(destinationFile.path);
-          return fileName;
+          rawBytes = await sourceFile.readAsBytes();
         }
       }
 
-      if (bytes != null) {
-        await destinationFile.writeAsBytes(bytes);
-        return fileName;
+      if (rawBytes == null || rawBytes.isEmpty) {
+        return null;
       }
 
-      return null;
+      // Automatically compress to max 800px
+      final processedBytes = await compressImageBytes(rawBytes, maxDimension: 800);
+
+      final sanitizedId = productId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final fileName = 'prod_${sanitizedId.isNotEmpty ? sanitizedId : "new"}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final dirPath = await getImageDirectoryPath();
+      final destinationFile = File(p.join(dirPath, fileName));
+
+      await destinationFile.writeAsBytes(processedBytes);
+      return fileName;
     } catch (e) {
       debugPrint('[ImageStorageService] Error picking/saving image: $e');
       return null;
@@ -134,7 +173,13 @@ class ImageStorageService {
       final dirPath = await getImageDirectoryPath();
       final safeName = p.basename(fileName);
       final destFile = File(p.join(dirPath, safeName));
-      await destFile.writeAsBytes(bytes);
+
+      Uint8List toWrite = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+      if (toWrite.lengthInBytes > 400 * 1024) {
+        toWrite = await compressImageBytes(toWrite, maxDimension: 800);
+      }
+
+      await destFile.writeAsBytes(toWrite);
       return safeName;
     } catch (e) {
       debugPrint('[ImageStorageService] Error saving image bytes: $e');
