@@ -102,4 +102,12 @@ Write-Host "   ALL ARTIFACTS BUILT SUCCESSFULLY! Ready in:            " -Foregro
 Write-Host "   $DistDir" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
-Get-ChildItem -Path $DistDir | Select-Object Name, @{Name="Size (MB)"; Expression={[math]::Round($_.Length / 1MB, 2)}}, LastWriteTime | Format-Table -AutoSize
+Get-ChildItem -Path $DistDir | Select-Object Name, @{Name="Size (MB)"; Expression={[math]::Round($_.Length / 1MB, 2)}}, @{Name="Full Path"; Expression={$_.FullName}} | Format-Table -AutoSize -Wrap
+
+Write-Host "Ready-to-distribute files:" -ForegroundColor Cyan
+Get-ChildItem -Path $DistDir | ForEach-Object {
+    $sizeMB = [math]::Round($_.Length / 1MB, 2)
+    Write-Host " [x] $($_.Name) ($sizeMB MB)" -ForegroundColor Green
+    Write-Host "     Path: $($_.FullName)" -ForegroundColor Gray
+}
+
