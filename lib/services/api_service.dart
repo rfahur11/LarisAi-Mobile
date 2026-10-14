@@ -37,7 +37,13 @@ class ApiService {
   late Dio _aiDio;
   final LocalDbService _localDb = LocalDbService.instance;
 
-  bool get _useLocalDb => ApiConstants.isOfflineMode || LocalHostServerService.instance.isRunning.value;
+  bool get _useLocalDb {
+    if (ApiConstants.currentMode == ConnectionMode.cloud) {
+      return false;
+    }
+    return ApiConstants.isOfflineMode ||
+        (ApiConstants.currentMode == ConnectionMode.wifi && LocalHostServerService.instance.isRunning.value);
+  }
 
   ApiService._internal() {
     _posDio = Dio(BaseOptions(
@@ -223,7 +229,11 @@ class ApiService {
 
   Future<Product> createProduct(Product product) async {
     if (_useLocalDb) {
-      return await _localDb.insertProduct(product);
+      final res = await _localDb.insertProduct(product);
+      if (LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('product_added');
+      }
+      return res;
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
@@ -288,7 +298,11 @@ class ApiService {
 
     // 1. Lifetime Offline Mode
     if (_useLocalDb) {
-      return await _localDb.insertProductsBatch(products);
+      final res = await _localDb.insertProductsBatch(products);
+      if (LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('products_bulk_added');
+      }
+      return res;
     }
 
     // 2. Cloud SaaS Mode
@@ -367,7 +381,11 @@ class ApiService {
 
   Future<bool> updateProduct(Product product) async {
     if (_useLocalDb) {
-      return await _localDb.updateProduct(product);
+      final ok = await _localDb.updateProduct(product);
+      if (ok && LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('product_updated');
+      }
+      return ok;
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
@@ -417,7 +435,11 @@ class ApiService {
 
   Future<bool> deleteProduct(String id) async {
     if (_useLocalDb) {
-      return await _localDb.deleteProduct(id);
+      final ok = await _localDb.deleteProduct(id);
+      if (ok && LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('product_deleted');
+      }
+      return ok;
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
@@ -444,7 +466,11 @@ class ApiService {
 
   Future<bool> voidTransaction(String invoiceNo) async {
     if (_useLocalDb) {
-      return await _localDb.voidTransaction(invoiceNo);
+      final ok = await _localDb.voidTransaction(invoiceNo);
+      if (ok && LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('transaction_voided');
+      }
+      return ok;
     }
 
     if (ApiConstants.currentMode == ConnectionMode.cloud) {
@@ -477,11 +503,15 @@ class ApiService {
   }) async {
     // 1. Offline Mode -> Local SQLite atomic transaction
     if (_useLocalDb) {
-      return await _localDb.insertTransaction(
+      final tx = await _localDb.insertTransaction(
         items: items,
         paymentType: paymentType,
         customerId: customerId,
       );
+      if (LocalHostServerService.instance.isRunning.value) {
+        LocalHostServerService.instance.notifyDataChanged('checkout_completed');
+      }
+      return tx;
     }
 
     // 2. Cloud Mode -> Post to Cloud POS, cache to tenant DB on success

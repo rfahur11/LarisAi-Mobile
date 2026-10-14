@@ -262,6 +262,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         case ConnectionMode.cloud:
           _posController.text = ApiConstants.cloudPosBaseUrl;
           _aiController.text = ApiConstants.cloudAiBaseUrl;
+          if (LocalHostServerService.instance.isRunning.value) {
+            LocalHostServerService.instance.stopServer();
+          }
           break;
         case ConnectionMode.usb:
           _posController.text = ApiConstants.usbPosBaseUrl;
@@ -271,6 +274,16 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           _posController.text = ApiConstants.lanPosBaseUrl;
           _aiController.text = ApiConstants.lanAiBaseUrl;
           break;
+      }
+    });
+
+    StoreProfileService.instance.getProfileForMode(mode).then((p) {
+      if (mounted && _selectedMode == mode) {
+        _storeNameController.text = p.storeName;
+        _ownerNameController.text = p.ownerName;
+        _storeAddressController.text = p.storeAddress;
+        _storePhoneController.text = p.storePhone;
+        _receiptFooterController.text = p.receiptFooter;
       }
     });
   }
@@ -366,17 +379,44 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
   }
 
   Future<void> _saveStoreProfile() async {
+    if (_selectedMode == ConnectionMode.wifi && !LocalHostServerService.instance.isRunning.value) {
+      if (mounted) {
+        showDialogNotification(
+          'Profil toko dikelola terpusat oleh Kasir Utama (Host).',
+          color: Colors.orange,
+          icon: Icons.lock_rounded,
+        );
+      }
+      return;
+    }
+
+    final sName = _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim();
+    final oName = _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim();
+    final sAddress = _storeAddressController.text.trim();
+    final sPhone = _storePhoneController.text.trim();
+    final rFooter = _receiptFooterController.text.trim().isEmpty
+        ? 'Terima Kasih Atas Kunjungan Anda!'
+        : _receiptFooterController.text.trim();
+
     await StoreProfileService.instance.saveProfile(
       StoreProfile(
-        storeName: _storeNameController.text.trim().isEmpty ? 'TOKO LARIS UMKM' : _storeNameController.text.trim(),
-        ownerName: _ownerNameController.text.trim().isEmpty ? 'Kasir 01' : _ownerNameController.text.trim(),
-        storeAddress: _storeAddressController.text.trim(),
-        storePhone: _storePhoneController.text.trim(),
-        receiptFooter: _receiptFooterController.text.trim().isEmpty
-            ? 'Terima Kasih Atas Kunjungan Anda!'
-            : _receiptFooterController.text.trim(),
+        storeName: sName,
+        ownerName: oName,
+        storeAddress: sAddress,
+        storePhone: sPhone,
+        receiptFooter: rFooter,
       ),
+      targetMode: _selectedMode,
     );
+
+    // If saving in Cloud SaaS mode, also sync with session memory and backend MongoDB
+    if (_selectedMode == ConnectionMode.cloud) {
+      await AuthService.instance.updateStoreProfile(
+        storeName: sName,
+        ownerName: oName,
+        phone: sPhone,
+      );
+    }
 
     if (mounted) {
       showDialogNotification(
@@ -389,11 +429,48 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
   Widget _buildStoreProfileTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLanClient = _selectedMode == ConnectionMode.wifi && !LocalHostServerService.instance.isRunning.value;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isLanClient)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_rounded, size: 20, color: Colors.blue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mode Klien Kasir (Read-Only)',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Profil toko & struk dikelola terpusat oleh Perangkat Utama (Host). Perangkat ini otomatis tersinkronisasi via Wi-Fi LAN.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Text(
             'Identitas Usaha & Struk Kasir',
             style: TextStyle(
@@ -417,6 +494,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             label: 'Nama UMKM / Toko',
             hint: 'Contoh: Toko Berkah Jaya UMKM',
             icon: Icons.storefront_rounded,
+            enabled: !isLanClient,
           ),
           const SizedBox(height: 10),
 
@@ -425,6 +503,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             label: 'Nama Pemilik / Kasir Utama',
             hint: 'Contoh: Budi Santoso / Kasir 01',
             icon: Icons.person_rounded,
+            enabled: !isLanClient,
           ),
           const SizedBox(height: 10),
 
@@ -434,6 +513,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             hint: 'Contoh: Jl. Pasar Ritel No. 88, Indonesia',
             icon: Icons.place_rounded,
             maxLines: 2,
+            enabled: !isLanClient,
           ),
           const SizedBox(height: 10),
 
@@ -443,6 +523,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             hint: 'Contoh: 0812-3456-7890',
             icon: Icons.phone_android_rounded,
             keyboardType: TextInputType.phone,
+            enabled: !isLanClient,
           ),
           const SizedBox(height: 10),
 
@@ -452,23 +533,53 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             hint: 'Contoh: Terima Kasih Atas Kunjungan Anda!',
             icon: Icons.receipt_long_rounded,
             maxLines: 2,
+            enabled: !isLanClient,
           ),
           const SizedBox(height: 14),
 
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          if (isLanClient)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkBorder.withValues(alpha: 0.3) : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                ),
               ),
-              onPressed: _saveStoreProfile,
-              icon: const Icon(Icons.save_rounded, size: 18),
-              label: const Text('Simpan Profil UMKM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline_rounded, size: 16, color: isDark ? AppColors.darkTextMuted : Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Profil Dikelola Kasir Utama (Host)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextMuted : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _saveStoreProfile,
+                icon: const Icon(Icons.save_rounded, size: 18),
+                label: const Text('Simpan Profil UMKM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -481,6 +592,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     required IconData icon,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
+    bool enabled = true,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -488,14 +600,16 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
       children: [
         Row(
           children: [
-            Icon(icon, size: 14, color: AppColors.primary),
+            Icon(icon, size: 14, color: enabled ? AppColors.primary : (isDark ? AppColors.darkTextMuted : Colors.grey)),
             const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+                color: enabled
+                    ? (isDark ? AppColors.darkTextMain : AppColors.textMain)
+                    : (isDark ? AppColors.darkTextMuted : Colors.grey.shade600),
               ),
             ),
           ],
@@ -503,11 +617,14 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
         const SizedBox(height: 4),
         TextField(
           controller: controller,
+          enabled: enabled,
           maxLines: maxLines,
           keyboardType: keyboardType,
           style: TextStyle(
             fontSize: 12,
-            color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+            color: enabled
+                ? (isDark ? AppColors.darkTextMain : AppColors.textMain)
+                : (isDark ? AppColors.darkTextMuted : Colors.grey.shade600),
           ),
           decoration: InputDecoration(
             hintText: hint,
@@ -517,7 +634,9 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             filled: true,
-            fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+            fillColor: enabled
+                ? (isDark ? AppColors.darkSurface : Colors.grey.shade50)
+                : (isDark ? AppColors.darkSurface.withValues(alpha: 0.4) : Colors.grey.shade100),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
@@ -528,6 +647,12 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
                 color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+              ),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: isDark ? AppColors.darkBorder.withValues(alpha: 0.5) : Colors.grey.shade300,
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -2063,10 +2188,20 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     if (!mounted) return;
 
     if (success) {
-      if (_selectedMode == ConnectionMode.offline) {
-        _selectMode(ConnectionMode.cloud);
+      _selectMode(ConnectionMode.cloud);
+      await ApiConstants.setMode(ConnectionMode.cloud);
+      if (LocalHostServerService.instance.isRunning.value) {
+        await LocalHostServerService.instance.stopServer();
       }
-      await ApiConstants.setMode(_selectedMode);
+
+      final profile = StoreProfileService.instance.profile;
+      _storeNameController.text = profile.storeName;
+      _ownerNameController.text = profile.ownerName;
+      _storePhoneController.text = profile.storePhone;
+      if (profile.storeAddress.isNotEmpty) {
+        _storeAddressController.text = profile.storeAddress;
+      }
+
       final posProv = Provider.of<PosProvider>(context, listen: false);
       posProv.updateBaseUrls();
       await posProv.loadProducts();
@@ -2111,10 +2246,20 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
     if (!mounted) return;
 
     if (success) {
-      if (_selectedMode == ConnectionMode.offline) {
-        _selectMode(ConnectionMode.cloud);
+      _selectMode(ConnectionMode.cloud);
+      await ApiConstants.setMode(ConnectionMode.cloud);
+      if (LocalHostServerService.instance.isRunning.value) {
+        await LocalHostServerService.instance.stopServer();
       }
-      await ApiConstants.setMode(_selectedMode);
+
+      final profile = StoreProfileService.instance.profile;
+      _storeNameController.text = profile.storeName;
+      _ownerNameController.text = profile.ownerName;
+      _storePhoneController.text = profile.storePhone;
+      if (profile.storeAddress.isNotEmpty) {
+        _storeAddressController.text = profile.storeAddress;
+      }
+
       posProv.updateBaseUrls();
       await posProv.loadProducts();
 
@@ -2794,7 +2939,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               color: isDark ? AppColors.darkTextMain : AppColors.textMain,
             ),
             decoration: InputDecoration(
-              hintText: 'LRS-LIFE-XXXX-XXXX-XXXX',
+              hintText: 'LRS-LIFE-XXXXXXXX-YYYYYYYY',
               hintStyle: TextStyle(
                 color: isDark ? AppColors.darkTextMuted.withValues(alpha: 0.6) : Colors.grey,
                 fontSize: 12,
@@ -2824,6 +2969,52 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
           const SizedBox(height: 10),
 
+          // 1-Tap Online Activation from Weboz
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.teal.shade700,
+                side: BorderSide(color: Colors.teal.shade600, width: 1.2),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.sync_rounded, size: 18),
+              label: const Text(
+                '🔄 1-Tap: Cek & Aktifkan Lisensi dari Weboz',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              onPressed: () async {
+                showDialogNotification(
+                  '⏳ Menghubungkan ke Weboz untuk verifikasi lisensi...',
+                  color: Colors.teal.shade700,
+                  icon: Icons.sync_rounded,
+                );
+                final res = await LicenseService.instance.verifyOnlineFromWeboz();
+                if (res['success'] == true) {
+                  await _loadLicense();
+                  _licenseController.clear();
+                  if (mounted) {
+                    showDialogNotification(
+                      res['message'] ?? '🎉 Lisensi resmi berhasil diaktifkan!',
+                      color: Colors.green.shade700,
+                      icon: Icons.check_circle_rounded,
+                    );
+                  }
+                } else {
+                  if (mounted) {
+                    showDialogNotification(
+                      res['message'] ?? 'Lisensi belum ditemukan di Weboz.',
+                      color: Colors.orange.shade800,
+                      icon: Icons.info_outline_rounded,
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -2834,7 +3025,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               icon: const Icon(Icons.verified_user_rounded, size: 18),
-              label: const Text('Aktifkan Lisensi Sekarang', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Aktifkan Lisensi Manual', style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () async {
                 final key = _licenseController.text.trim();
                 if (key.isEmpty) {
@@ -3869,10 +4060,14 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                           ? 'Terima Kasih Atas Kunjungan Anda!'
                           : _receiptFooterController.text.trim(),
                     ),
+                    targetMode: _selectedMode,
                   );
 
                   // Save Connection Mode & URLs
                   await ApiConstants.setMode(_selectedMode);
+                  if (_selectedMode == ConnectionMode.cloud && LocalHostServerService.instance.isRunning.value) {
+                    await LocalHostServerService.instance.stopServer();
+                  }
                   if (_selectedMode != ConnectionMode.offline && _posController.text.trim().isNotEmpty) {
                     await ApiConstants.setUrls(
                       posUrl: _posController.text.trim(),

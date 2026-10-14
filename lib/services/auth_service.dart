@@ -206,7 +206,7 @@ class AuthService extends ChangeNotifier {
 
         await _saveToPrefs();
 
-        // Otomatis sinkronisasi identitas toko & profil UMKM
+        // Otomatis sinkronisasi identitas toko & profil UMKM ke ruang lingkup Cloud SaaS
         try {
           final currentProfile = StoreProfileService.instance.profile;
           final ownerName = (data['user']?['name'] as String?) ?? (data['name'] as String?) ?? currentProfile.ownerName;
@@ -216,6 +216,7 @@ class AuthService extends ChangeNotifier {
               ownerName: ownerName,
               storePhone: userPhone ?? currentProfile.storePhone,
             ),
+            targetMode: ConnectionMode.cloud,
           );
         } catch (e) {
           debugPrint('StoreProfile auto-sync error on login: $e');
@@ -310,7 +311,7 @@ class AuthService extends ChangeNotifier {
 
         await _saveToPrefs();
 
-        // Otomatis sinkronisasi identitas toko & profil UMKM
+        // Otomatis sinkronisasi identitas toko & profil UMKM ke ruang lingkup Cloud SaaS
         try {
           final currentProfile = StoreProfileService.instance.profile;
           await StoreProfileService.instance.saveProfile(
@@ -319,6 +320,7 @@ class AuthService extends ChangeNotifier {
               ownerName: name.trim(),
               storePhone: phone.trim(),
             ),
+            targetMode: ConnectionMode.cloud,
           );
         } catch (e) {
           debugPrint('StoreProfile auto-sync error on register: $e');
@@ -394,6 +396,106 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('fetchSubscriptionStatus error: $e');
+    }
+    return null;
+  }
+
+  /// ☁️ Update store profile both locally in session memory and remotely on Cloud backend
+  Future<bool> updateStoreProfile({
+    required String storeName,
+    String? ownerName,
+    String? phone,
+    String? category,
+    String? baseUrl,
+  }) async {
+    final trimmedName = storeName.trim();
+    if (trimmedName.isEmpty) return false;
+
+    // 1. Immediately update in-memory session and SharedPreferences
+    _storeName = trimmedName;
+    if (phone != null && phone.trim().isNotEmpty) {
+      _phone = phone.trim();
+    }
+    await _saveToPrefs();
+    notifyListeners();
+
+    // 2. Synchronize to Cloud SaaS backend via PUT /api/v1/store/profile
+    if (isLoggedIn) {
+      try {
+        final effectiveUrl = (baseUrl != null && baseUrl.startsWith('http'))
+            ? baseUrl
+            : (ApiConstants.posBaseUrl.startsWith('http')
+                ? ApiConstants.posBaseUrl
+                : ApiConstants.cloudPosBaseUrl);
+
+        final dio = Dio(BaseOptions(
+          baseUrl: effectiveUrl,
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_token',
+          },
+        ));
+
+        final response = await dio.put(
+          '/api/v1/store/profile',
+          data: {
+            'store_name': trimmedName,
+            if (ownerName != null && ownerName.trim().isNotEmpty) 'owner_name': ownerName.trim(),
+            if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+            if (category != null && category.trim().isNotEmpty) 'category': category.trim(),
+          },
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('☁️ [AuthService] Cloud store profile synced to backend: $trimmedName');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [AuthService] Failed to sync store profile to cloud backend: $e');
+      }
+    }
+    return false;
+  }
+
+  /// 🔄 Fetch latest store profile from Cloud SaaS backend
+  Future<Map<String, dynamic>?> fetchStoreProfile({String? baseUrl}) async {
+    if (!isLoggedIn) return null;
+    try {
+      final effectiveUrl = (baseUrl != null && baseUrl.startsWith('http'))
+          ? baseUrl
+          : (ApiConstants.posBaseUrl.startsWith('http')
+              ? ApiConstants.posBaseUrl
+              : ApiConstants.cloudPosBaseUrl);
+
+      final dio = Dio(BaseOptions(
+        baseUrl: effectiveUrl,
+        connectTimeout: const Duration(seconds: 6),
+        receiveTimeout: const Duration(seconds: 6),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      ));
+
+      final response = await dio.get('/api/v1/store/profile');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'] ?? response.data;
+        final sName = (data['store_name'] as String?)?.trim();
+        final sPhone = (data['phone'] as String?)?.trim();
+        if (sName != null && sName.isNotEmpty) {
+          _storeName = sName;
+        }
+        if (sPhone != null && sPhone.isNotEmpty) {
+          _phone = sPhone;
+        }
+        await _saveToPrefs();
+        notifyListeners();
+        return Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthService] fetchStoreProfile error: $e');
     }
     return null;
   }

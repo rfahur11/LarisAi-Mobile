@@ -35,6 +35,7 @@ void main() async {
   CloudHealthService.instance.syncWithMode();
   ApiConstants.modeNotifier.addListener(() {
     CloudHealthService.instance.syncWithMode();
+    StoreProfileService.instance.switchMode(ApiConstants.currentMode);
   });
 
   runApp(

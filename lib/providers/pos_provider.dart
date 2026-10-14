@@ -1,12 +1,20 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../core/constants/api_constants.dart';
 import '../models/product_model.dart';
 import '../models/cart_item_model.dart';
 import '../models/transaction_model.dart';
 import '../models/analytics_model.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../services/local_db_service.dart';
+import '../services/local_host_server_service.dart';
+import '../services/store_profile_service.dart';
 
-class PosProvider extends ChangeNotifier {
+class PosProvider extends ChangeNotifier with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
 
   List<Product> _products = [];
@@ -17,6 +25,13 @@ class PosProvider extends ChangeNotifier {
   String _searchQuery = '';
   AnalyticsSummary? _summary;
   List<CustomerRecord> _customerHistory = [];
+
+  // ⚡ Real-Time Bidirectional SSE & Host Data Sync
+  HttpClient? _sseClient;
+  StreamSubscription? _sseSub;
+  StreamSubscription? _hostDataSub;
+  Timer? _reconnectTimer;
+  Timer? _cloudPollTimer;
 
   List<Product> get products {
     if (_selectedCategory == 'Semua') {
@@ -55,9 +70,222 @@ class PosProvider extends ChangeNotifier {
   }
 
   PosProvider() {
+    WidgetsBinding.instance.addObserver(this);
     loadProducts();
     loadSummary();
     loadCustomerHistory();
+    _initRealtimeSync();
+  }
+
+  void _initRealtimeSync() {
+    // 1. Host Event Listener (Client ➔ Host instant refresh on Host screen)
+    _hostDataSub?.cancel();
+    _hostDataSub = LocalHostServerService.instance.onDataChanged.listen((event) {
+      debugPrint('⚡ [PosProvider] Host onDataChanged received: $event');
+      loadProducts(silent: true);
+      loadSummary();
+    });
+
+    // 2. Client SSE Listener (Host ➔ All Clients real-time stream)
+    _connectSseStream();
+
+    // 3. Cloud Mode Background Polling (Multi-Kasir Cloud Real-Time Sync)
+    _startCloudPolling();
+
+    // 4. Initial store profile synchronization
+    fetchAndSyncStoreProfile();
+  }
+
+  void _startCloudPolling() {
+    _stopCloudPolling();
+    if (ApiConstants.currentMode != ConnectionMode.cloud) return;
+
+    _cloudPollTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (ApiConstants.currentMode == ConnectionMode.cloud) {
+        loadProducts(silent: true);
+        loadSummary();
+        fetchAndSyncStoreProfile();
+      }
+    });
+  }
+
+  void _stopCloudPolling() {
+    _cloudPollTimer?.cancel();
+    _cloudPollTimer = null;
+  }
+
+  /// 🔄 Synchronize store profile across devices (LAN Host to Client, and Cloud SaaS)
+  Future<void> fetchAndSyncStoreProfile() async {
+    final mode = ApiConstants.currentMode;
+    if (mode == ConnectionMode.offline) return;
+
+    // 1. Mode Cloud: synchronize with active Cloud SaaS backend
+    if (mode == ConnectionMode.cloud) {
+      if (AuthService.instance.isLoggedIn) {
+        try {
+          final cloudData = await AuthService.instance.fetchStoreProfile();
+          if (cloudData != null) {
+            final cloudStoreName = (cloudData['store_name'] as String?)?.trim();
+            final cloudOwnerName = (cloudData['owner_name'] as String?)?.trim();
+            final cloudPhone = (cloudData['phone'] as String?)?.trim();
+            final currentProfile = StoreProfileService.instance.profile;
+            if (cloudStoreName != null && cloudStoreName.isNotEmpty &&
+                (currentProfile.storeName != cloudStoreName ||
+                 (cloudOwnerName != null && cloudOwnerName.isNotEmpty && currentProfile.ownerName != cloudOwnerName) ||
+                 (cloudPhone != null && cloudPhone.isNotEmpty && currentProfile.storePhone != cloudPhone))) {
+              await StoreProfileService.instance.saveProfile(
+                currentProfile.copyWith(
+                  storeName: cloudStoreName,
+                  ownerName: (cloudOwnerName != null && cloudOwnerName.isNotEmpty) ? cloudOwnerName : currentProfile.ownerName,
+                  storePhone: (cloudPhone != null && cloudPhone.isNotEmpty) ? cloudPhone : currentProfile.storePhone,
+                ),
+                targetMode: ConnectionMode.cloud,
+              );
+              debugPrint('☁️ [PosProvider] Synced Cloud store profile from backend: $cloudStoreName');
+            }
+          }
+        } catch (e) {
+          debugPrint('☁️ [PosProvider] Cloud store profile sync error: $e');
+        }
+      }
+      return;
+    }
+
+    // 2. Mode LAN / USB: Client fetches profile from Host embedded server
+    if (LocalHostServerService.instance.isRunning.value) return; // Host maintains its own master profile
+
+    final baseUrl = ApiConstants.posBaseUrl;
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) return;
+
+    try {
+      final dio = Dio(BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+      ));
+      final lanToken = AuthService.instance.lanClusterToken;
+      final effectiveToken = lanToken.isNotEmpty ? lanToken : 'laris-lan-sec-key';
+
+      final res = await dio.get(
+        '/api/v1/profile',
+        options: Options(headers: {
+          'x-cluster-auth': effectiveToken,
+          'Authorization': 'Bearer $effectiveToken',
+        }),
+      );
+
+      if (res.statusCode == 200 && res.data is Map) {
+        final profileData = Map<String, dynamic>.from(res.data);
+        final fetchedProfile = StoreProfile.fromJson(profileData);
+        await StoreProfileService.instance.saveProfile(
+          fetchedProfile,
+          targetMode: mode,
+        );
+        debugPrint('📶 [PosProvider] Synced LAN profile from Host: ${fetchedProfile.storeName}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [PosProvider] Could not sync store profile from Host: $e');
+    }
+  }
+
+  void _connectSseStream() async {
+    _disconnectSse();
+
+    // Only connect if in wifi/usb mode and this device is NOT the host
+    if (ApiConstants.currentMode != ConnectionMode.wifi && ApiConstants.currentMode != ConnectionMode.usb) {
+      return;
+    }
+    if (LocalHostServerService.instance.isRunning.value) {
+      return;
+    }
+
+    final baseUrl = ApiConstants.posBaseUrl;
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      return;
+    }
+
+    try {
+      final uri = Uri.parse('$baseUrl/api/v1/events');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      _sseClient = client;
+
+      final request = await client.getUrl(uri);
+      request.headers.set('Accept', 'text/event-stream');
+      request.headers.set('Cache-Control', 'no-cache');
+      final lanToken = AuthService.instance.lanClusterToken;
+      final effectiveToken = lanToken.isNotEmpty ? lanToken : 'laris-lan-sec-key';
+      request.headers.set('x-cluster-auth', effectiveToken);
+      request.headers.set('Authorization', 'Bearer $effectiveToken');
+
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        // Fetch profile immediately upon establishing connection
+        fetchAndSyncStoreProfile();
+
+        _sseSub = response
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen((line) {
+          if (line.startsWith('event: ')) {
+            final event = line.substring(7).trim();
+            debugPrint('⚡ [PosProvider] Client SSE event: $event');
+            if (event == 'profile_updated') {
+              fetchAndSyncStoreProfile();
+            } else {
+              loadProducts(silent: true);
+              loadSummary();
+            }
+          }
+        }, onError: (err) {
+          _reconnectSseWithBackoff();
+        }, onDone: () {
+          _reconnectSseWithBackoff();
+        });
+      } else {
+        _reconnectSseWithBackoff();
+      }
+    } catch (_) {
+      _reconnectSseWithBackoff();
+    }
+  }
+
+  void _reconnectSseWithBackoff() {
+    _disconnectSse();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 5), () {
+      _connectSseStream();
+    });
+  }
+
+  void _disconnectSse() {
+    _reconnectTimer?.cancel();
+    _sseSub?.cancel();
+    _sseSub = null;
+    _sseClient?.close(force: true);
+    _sseClient = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _disconnectSse();
+      _stopCloudPolling();
+    } else if (state == AppLifecycleState.resumed) {
+      loadProducts(silent: true);
+      loadSummary();
+      _connectSseStream();
+      _startCloudPolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _hostDataSub?.cancel();
+    _disconnectSse();
+    _stopCloudPolling();
+    super.dispose();
   }
 
   Future<void> loadCustomerHistory() async {
@@ -76,13 +304,18 @@ class PosProvider extends ChangeNotifier {
 
   void updateBaseUrls() {
     _apiService.updateBaseUrls();
+    _connectSseStream();
+    _startCloudPolling();
+    fetchAndSyncStoreProfile();
   }
 
-  Future<void> loadProducts({String? search}) async {
+  Future<void> loadProducts({String? search, bool silent = false}) async {
     _apiService.updateBaseUrls();
-    _isLoading = true;
-    _connectionError = null;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      _connectionError = null;
+      notifyListeners();
+    }
     _searchQuery = search ?? '';
     try {
       _products = await _apiService.getProducts(search: search);

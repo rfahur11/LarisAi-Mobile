@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum LicenseType { trial, lifetime, subscription }
@@ -54,6 +55,25 @@ class LicenseService {
 
   static const String _secretSalt = 'LARISAI_VIBE_SECURE_SALT_2026';
 
+  /// Sanitize Machine ID to 8-character hardware token
+  static String sanitizeMachineId(String machineId) {
+    final clean = machineId.replaceAll(RegExp(r'[^A-Z0-9]'), '').toUpperCase();
+    if (clean.length >= 8) {
+      return clean.substring(0, 8);
+    }
+    return clean.padRight(8, '0');
+  }
+
+  /// Cryptographic Checksum generator matching Weboz license generator
+  static String generateLicenseChecksum(String cleanMid, String planType) {
+    final payload = '$cleanMid:$planType:$_secretSalt';
+    final keyBytes = utf8.encode(_secretSalt);
+    final payloadBytes = utf8.encode(payload);
+    final hmac = crypto.Hmac(crypto.sha256, keyBytes);
+    final digest = hmac.convert(payloadBytes);
+    return digest.toString().toUpperCase().substring(0, 8);
+  }
+
   /// Get or Generate Unique Persistent Machine Identifier
   Future<String> getMachineId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -102,9 +122,23 @@ class LicenseService {
       );
     }
 
-    // Verify cryptographic signature
+    // Verify cryptographic signature and hardware-bound checksum
     final expectedSig = _generateSignature(machineId, key, typeStr, activatedStr);
-    final isTamperFree = (storedSig == expectedSig);
+    final currentCleanMid = sanitizeMachineId(machineId);
+
+    final match = RegExp(r'^LRS-(LIFE|SUBS)-([A-Z0-9]{8})-([A-Z0-9]{8})$').firstMatch(key);
+    bool isKeyChecksumValid = false;
+    if (match != null) {
+      final planPrefix = match.group(1)!;
+      final keyMid = match.group(2)!;
+      final keyChecksum = match.group(3)!;
+      final planType = (planPrefix == 'LIFE') ? 'lifetime' : 'subscription';
+      if (keyMid == currentCleanMid && keyChecksum == generateLicenseChecksum(currentCleanMid, planType)) {
+        isKeyChecksumValid = true;
+      }
+    }
+
+    final isTamperFree = (storedSig == expectedSig) && isKeyChecksumValid;
 
     LicenseType type = LicenseType.trial;
     if (typeStr == 'lifetime') type = LicenseType.lifetime;
@@ -130,38 +164,43 @@ class LicenseService {
     );
   }
 
-  /// Activate a new license key (Offline or SaaS)
+  /// Activate a new license key (Offline or SaaS) with Strict Hardware Binding
   Future<bool> activateLicense(String inputKey) async {
-    final cleanKey = inputKey.trim().toUpperCase();
+    final cleanKey = inputKey.trim().toUpperCase().replaceAll(' ', '');
     final machineId = await getMachineId();
+    final currentCleanMid = sanitizeMachineId(machineId);
     final prefs = await SharedPreferences.getInstance();
 
-    LicenseType type;
-    DateTime? expiresAt;
-    final now = DateTime.now();
-
-    if (cleanKey.startsWith('LRS-LIFE-') || cleanKey.contains('LIFETIME')) {
-      type = LicenseType.lifetime;
-      expiresAt = null; // Never expires
-    } else if (cleanKey.startsWith('LRS-SUBS-') || cleanKey.contains('SUBS')) {
-      type = LicenseType.subscription;
-      expiresAt = now.add(const Duration(days: 365)); // 1 year subscription
-    } else {
-      // Simple format check (Must be at least 16 chars)
-      if (cleanKey.length >= 16) {
-        type = LicenseType.lifetime;
-        expiresAt = null;
-      } else {
-        throw Exception('Format Serial Key tidak valid. Contoh: LRS-LIFE-ABCD-1234');
-      }
+    final match = RegExp(r'^LRS-(LIFE|SUBS)-([A-Z0-9]{8})-([A-Z0-9]{8})$').firstMatch(cleanKey);
+    if (match == null) {
+      throw Exception('Format Serial Key tidak valid. Format resmi: LRS-LIFE-XXXXXXXX-YYYYYYYY');
     }
 
-    final typeStr = (type == LicenseType.lifetime) ? 'lifetime' : 'subscription';
+    final planPrefix = match.group(1)!; // LIFE or SUBS
+    final keyMid = match.group(2)!;
+    final keyChecksum = match.group(3)!;
+
+    if (keyMid != currentCleanMid) {
+      throw Exception('Serial Key ini terikat untuk perangkat lain ($keyMid). Machine ID perangkat ini: $currentCleanMid.');
+    }
+
+    final planType = (planPrefix == 'LIFE') ? 'lifetime' : 'subscription';
+    final expectedChecksum = generateLicenseChecksum(currentCleanMid, planType);
+    if (keyChecksum != expectedChecksum) {
+      throw Exception('Serial Key tidak valid (Checksum mismatch). Harap dapatkan serial key resmi dari Weboz.');
+    }
+
+    final type = (planType == 'lifetime') ? LicenseType.lifetime : LicenseType.subscription;
+    final now = DateTime.now();
+    final DateTime? expiresAt = (type == LicenseType.subscription)
+        ? now.add(const Duration(days: 365))
+        : null;
+
     final activatedStr = now.toIso8601String();
-    final signature = _generateSignature(machineId, cleanKey, typeStr, activatedStr);
+    final signature = _generateSignature(machineId, cleanKey, planType, activatedStr);
 
     await prefs.setString(_prefLicenseKey, cleanKey);
-    await prefs.setString(_prefLicenseType, typeStr);
+    await prefs.setString(_prefLicenseType, planType);
     await prefs.setString(_prefActivatedAt, activatedStr);
     if (expiresAt != null) {
       await prefs.setString(_prefExpiresAt, expiresAt.toIso8601String());
@@ -171,6 +210,48 @@ class LicenseService {
     await prefs.setString(_prefSignature, signature);
 
     return true;
+  }
+
+  /// 1-Tap Online Activation: Query Weboz API to verify and activate license automatically
+  Future<Map<String, dynamic>> verifyOnlineFromWeboz() async {
+    final machineId = await getMachineId();
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+      ));
+
+      final url = 'https://weboz.my.id/api/licenses/verify?machine_id=$machineId';
+      final response = await dio.get(url);
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data['success'] == true && data['found'] == true && data['license'] != null) {
+          final serialKey = data['license']['serial_key']?.toString();
+          if (serialKey != null && serialKey.isNotEmpty) {
+            await activateLicense(serialKey);
+            return {
+              'success': true,
+              'message': '🎉 Lisensi resmi berhasil diverifikasi & diaktifkan otomatis dari Weboz!',
+              'license': data['license'],
+            };
+          }
+        }
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Lisensi belum diaktifkan oleh Admin Weboz untuk Machine ID: $machineId',
+        };
+      }
+      return {
+        'success': false,
+        'message': 'Respon server tidak valid (${response.statusCode})',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Gagal terhubung ke Weboz. Pastikan perangkat terhubung ke internet: $e',
+      };
+    }
   }
 
   String _generateSignature(String machineId, String key, String type, String date) {

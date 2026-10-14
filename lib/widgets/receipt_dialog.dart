@@ -296,22 +296,32 @@ class ReceiptDialog extends StatelessWidget {
 
                       _buildDashedDivider(isDark),
 
-                      // Receipt Footer
+                      // Receipt Footer (Option A)
                       Text(
-                        activeFooter,
+                        activeFooter.isNotEmpty ? activeFooter : 'Terima Kasih Atas Kunjungan Anda!',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.darkTextMain : AppColors.textMain,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Simpan struk ini sebagai bukti transaksi sah',
+                        'Senang melayani Anda! Semoga hari Anda menyenangkan & penuh berkah.',
                         style: TextStyle(
                           fontSize: 9.5,
-                          color: (isDark ? AppColors.darkTextMuted : AppColors.textMuted).withValues(alpha: 0.7),
+                          color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '✦ Sampai Jumpa Kembali ✦',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.primaryHover : AppColors.primary,
                         ),
                         textAlign: TextAlign.center,
                       ),

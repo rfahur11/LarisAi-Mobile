@@ -44,6 +44,12 @@ class LocalHostServerService {
   final StreamController<String> _eventController = StreamController<String>.broadcast();
   Stream<String> get onDataChanged => _eventController.stream;
 
+  void notifyDataChanged(String event) {
+    if (!_eventController.isClosed) {
+      _eventController.add(event);
+    }
+  }
+
   int get port => _port;
   String get localIp => _localIp;
   String get serverUrl => 'http://$_localIp:$_port';
@@ -230,6 +236,55 @@ class LocalHostServerService {
           'port': _port,
           'time': DateTime.now().toIso8601String(),
         });
+        return;
+      }
+
+      // 1c. Host Profile: GET /api/v1/profile
+      if (path == '/api/v1/profile' && method == 'GET') {
+        final profile = StoreProfileService.instance.profile;
+        _jsonResponse(res, HttpStatus.ok, profile.toJson());
+        return;
+      }
+
+      // 1b. Server-Sent Events (SSE) Real-Time Push: GET /api/v1/events
+      if (path == '/api/v1/events' && method == 'GET') {
+        res.headers.set('Content-Type', 'text/event-stream; charset=utf-8');
+        res.headers.set('Cache-Control', 'no-cache, no-transform');
+        res.headers.set('Connection', 'keep-alive');
+        res.headers.set('X-Accel-Buffering', 'no');
+        res.statusCode = HttpStatus.ok;
+        res.bufferOutput = false;
+
+        res.write(': connected\n\n');
+        await res.flush();
+
+        StreamSubscription<String>? sub;
+        Timer? keepAliveTimer;
+
+        void cleanup() {
+          sub?.cancel();
+          keepAliveTimer?.cancel();
+        }
+
+        sub = _eventController.stream.listen((event) {
+          try {
+            res.write('event: $event\ndata: {"time":"${DateTime.now().toIso8601String()}"}\n\n');
+            res.flush();
+          } catch (_) {
+            cleanup();
+          }
+        });
+
+        keepAliveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+          try {
+            res.write(': heartbeat\n\n');
+            res.flush();
+          } catch (_) {
+            cleanup();
+          }
+        });
+
+        res.done.then((_) => cleanup()).catchError((_) => cleanup());
         return;
       }
 
