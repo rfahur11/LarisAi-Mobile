@@ -191,29 +191,27 @@ void main() {
         ],
       );
 
-      // When forceThermalRoll is default (true), even passing A4 pageFormat will force thermal slip
-      final docDefault = await PrinterService.instance.generateReceiptDocument(
+      // When pageFormat is null (e.g. shareReceiptPdf), it generates pure 57mm thermal roll
+      final docRoll = await PrinterService.instance.generateReceiptDocument(
         transaction: tx,
         cashTendered: 25000,
         storeName: 'WARUNG TEH SEGAR',
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: null,
       );
-      expect(docDefault.document.pdfPageList.pages.first.pageFormat.width, closeTo(57 * PdfPageFormat.mm, 0.1));
+      expect(docRoll.document.pdfPageList.pages.first.pageFormat.width, closeTo(57 * PdfPageFormat.mm, 0.1));
 
-      // When forceThermalRoll is explicitly false, it honors wide paper (A4)
+      // When pageFormat is A4 (Android Print Spooler preview), it creates an A4 document with the thermal slip centered
       final docA4 = await PrinterService.instance.generateReceiptDocument(
         transaction: tx,
         cashTendered: 25000,
         storeName: 'WARUNG TEH SEGAR',
         pageFormat: PdfPageFormat.a4,
-        forceThermalRoll: false,
       );
 
       expect(docA4.document.pdfPageList.pages.length, equals(1));
       expect(docA4.document.pdfPageList.pages.first.pageFormat.width, closeTo(PdfPageFormat.a4.width, 0.1));
       final bytes = await docA4.save();
       expect(bytes, isNotEmpty);
-      expect(bytes.length, greaterThan(100));
       expect(bytes.length, greaterThan(100));
     });
   });

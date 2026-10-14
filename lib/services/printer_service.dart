@@ -31,8 +31,10 @@ class PrinterService {
 
     final doc = pw.Document();
     final thermalRoll = is80mm ? PdfPageFormat.roll80 : PdfPageFormat.roll57;
-    final effectivePageFormat = (forceThermalRoll || pageFormat == null) ? thermalRoll : pageFormat;
-    final isWidePaper = effectivePageFormat.width > 80 * PdfPageFormat.mm;
+    // When paper format is wide (A4 / Letter in Android Print Spooler preview),
+    // honor it so the receipt is centered horizontally with equal margins.
+    final isWidePaper = pageFormat != null && pageFormat.width > 80 * PdfPageFormat.mm;
+    final effectivePageFormat = isWidePaper ? pageFormat! : thermalRoll;
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final dateFormatter = DateFormat('dd/MM/yyyy HH:mm:ss');
 
@@ -47,17 +49,20 @@ class PrinterService {
             ? const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24)
             : const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         build: (pw.Context context) {
-          final receiptBody = pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              // Store Header
-              pw.Center(
-                child: pw.Text(
-                  activeStoreName,
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
-                  textAlign: pw.TextAlign.center,
+          final receiptWidth = is80mm ? 76 * PdfPageFormat.mm : 56 * PdfPageFormat.mm;
+          final receiptBody = pw.Container(
+            width: isWidePaper ? receiptWidth : double.infinity,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // Store Header
+                pw.Center(
+                  child: pw.Text(
+                    activeStoreName,
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
+                    textAlign: pw.TextAlign.center,
+                  ),
                 ),
-              ),
               if (activeStoreAddress.isNotEmpty) ...[
                 pw.SizedBox(height: 2),
                 pw.Center(
@@ -237,17 +242,13 @@ class PrinterService {
                 ),
               ),
             ],
-          );
+          ),
+        );
 
           if (isWidePaper) {
             // When previewing or printing on wide paper (A4 / Letter / Android Print Spooler preview),
             // CENTER the thermal slip horizontally so margins on the left and right are perfectly balanced!
-            return pw.Center(
-              child: pw.Container(
-                width: is80mm ? 76 * PdfPageFormat.mm : 56 * PdfPageFormat.mm,
-                child: receiptBody,
-              ),
-            );
+            return pw.Center(child: receiptBody);
           }
 
           return receiptBody;
@@ -269,16 +270,18 @@ class PrinterService {
       final thermalFormat = is80mm ? PdfPageFormat.roll80 : PdfPageFormat.roll57;
       return await Printing.layoutPdf(
         format: thermalFormat,
-        dynamicLayout: false,
+        dynamicLayout: true,
         onLayout: (PdfPageFormat format) async {
-          // Force compact thermal roll format (roll57 / roll80) so mobile print spoolers and PDF viewers
-          // do NOT shrink the receipt into a tiny speck on a 30cm A4 sheet!
+          // If the print spooler uses A4 / Letter, pass format so the thermal slip is horizontally centered.
+          // If on thermal printer (<= 80mm), pass thermalFormat so it prints edge-to-edge.
+          final isWide = format.width > 80 * PdfPageFormat.mm;
+          final targetFormat = isWide ? format : thermalFormat;
           final doc = await generateReceiptDocument(
             transaction: transaction,
             cashTendered: cashTendered,
             storeName: storeName,
             is80mm: is80mm,
-            forceThermalRoll: true,
+            pageFormat: targetFormat,
           );
           return doc.save();
         },
@@ -301,7 +304,7 @@ class PrinterService {
       cashTendered: cashTendered,
       storeName: storeName,
       is80mm: is80mm,
-      forceThermalRoll: true,
+      pageFormat: null, // Forces continuous roll format (roll57 / roll80)
     );
 
     await Printing.sharePdf(
