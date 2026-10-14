@@ -89,7 +89,9 @@ class ApiService {
   void updateBaseUrls() {
     if (!ApiConstants.isOfflineMode) {
       _posDio.options.baseUrl = ApiConstants.posBaseUrl;
-      _aiDio.options.baseUrl = ApiConstants.aiBaseUrl;
+      _aiDio.options.baseUrl = (ApiConstants.currentMode == ConnectionMode.wifi)
+          ? ApiConstants.posBaseUrl
+          : ApiConstants.aiBaseUrl;
     }
   }
 

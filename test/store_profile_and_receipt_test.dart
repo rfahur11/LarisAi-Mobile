@@ -172,7 +172,7 @@ void main() {
       expect(bytes.length, greaterThan(100));
     });
 
-    test('generateReceiptDocument on wide paper (A4) centers receipt with balanced margins', () async {
+    test('generateReceiptDocument strictly enforces pure continuous thermal roll without A4 bloating', () async {
       final tx = Transaction(
         id: 'tx-124',
         invoiceNo: 'INV-20261014-002',
@@ -191,26 +191,25 @@ void main() {
         ],
       );
 
-      // When pageFormat is null (e.g. shareReceiptPdf), it generates pure 57mm thermal roll
-      final docRoll = await PrinterService.instance.generateReceiptDocument(
+      // 58mm Thermal Roll (Default)
+      final docRoll57 = await PrinterService.instance.generateReceiptDocument(
         transaction: tx,
         cashTendered: 25000,
         storeName: 'WARUNG TEH SEGAR',
-        pageFormat: null,
+        is80mm: false,
       );
-      expect(docRoll.document.pdfPageList.pages.first.pageFormat.width, closeTo(57 * PdfPageFormat.mm, 0.1));
+      expect(docRoll57.document.pdfPageList.pages.first.pageFormat.width, closeTo(57 * PdfPageFormat.mm, 0.1));
 
-      // When pageFormat is A4 (Android Print Spooler preview), it creates an A4 document with the thermal slip centered
-      final docA4 = await PrinterService.instance.generateReceiptDocument(
+      // 80mm Thermal Roll
+      final docRoll80 = await PrinterService.instance.generateReceiptDocument(
         transaction: tx,
         cashTendered: 25000,
         storeName: 'WARUNG TEH SEGAR',
-        pageFormat: PdfPageFormat.a4,
+        is80mm: true,
       );
+      expect(docRoll80.document.pdfPageList.pages.first.pageFormat.width, closeTo(80 * PdfPageFormat.mm, 0.1));
 
-      expect(docA4.document.pdfPageList.pages.length, equals(1));
-      expect(docA4.document.pdfPageList.pages.first.pageFormat.width, closeTo(PdfPageFormat.a4.width, 0.1));
-      final bytes = await docA4.save();
+      final bytes = await docRoll57.save();
       expect(bytes, isNotEmpty);
       expect(bytes.length, greaterThan(100));
     });

@@ -48,5 +48,33 @@ void main() {
       expect(data, isA<List>());
       client.close();
     });
+
+    test('AI Radar stockout forecasting endpoint returns predictions list', () async {
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse('http://127.0.0.1:8099/api/v1/ai/forecasting/stockouts'));
+      final res = await req.close();
+
+      expect(res.statusCode, equals(HttpStatus.ok));
+      final responseBody = await utf8.decoder.bind(res).join();
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      expect(data['status'], equals('success'));
+      expect(data['predictions'], isA<List>());
+      client.close();
+    });
+
+    test('AI Customer clustering endpoint returns clusters list', () async {
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse('http://127.0.0.1:8099/api/v1/ai/clustering/customers'));
+      final res = await req.close();
+
+      expect(res.statusCode, equals(HttpStatus.ok));
+      final responseBody = await utf8.decoder.bind(res).join();
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      expect(data['status'], equals('success'));
+      expect(data['clusters'], isA<List>());
+      client.close();
+    });
   });
 }

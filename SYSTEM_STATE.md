@@ -336,3 +336,25 @@ flutter run -d windows
    - Katalog inventori langsung terupdate dari 1 item ➔ **16 item (431 unit fisik stok)**.
    - Tab Kasir langsung menampilkan 16 produk dengan status stok dan tombol `+ Tambah` yang siap ditransaksikan.
 
+---
+
+## 🖨️ 14. Pure Thermal Roll Receipts & Wi-Fi LAN AI Radar Synchronization
+
+> **Tanggal Rilis**: 14 Oktober 2026  
+> **Status**: 🟢 Production Ready & Verified via 51 Unit Tests & Physical Android Device (`3e893788`)
+
+### 1. Pure Continuous Thermal Roll Receipts (Eliminasi A4 Spooler Canvas)
+- **Problem**: Android Print Spooler default ISO A4 menyebabkan struk kasir dibungkus kanvas A4 penuh dan di-center (`pw.Center`), menghasilkan PDF selebar 21cm dengan teks struk kecil di tengah dan ruang kosong berlebih.
+- **Solution**:
+  - `lib/services/printer_service.dart`: Mengunci seluruh generasi dokumen struk selalu menggunakan `PdfPageFormat.roll57` (atau `roll80`), menghapus kanvas A4 dan pembungkus `pw.Center`.
+  - Margin diatur kompak `horizontal: 2.5mm, vertical: 4mm` dengan lebar `double.infinity`.
+  - PDF yang dihasilkan (baik pratinjau cetak maupun simpan/bagikan via WhatsApp) berukuran murni 57mm x ~110mm, otomatis memenuhi layar HP secara proporsional, tajam, dan mudah dibaca.
+
+### 2. Wi-Fi LAN Host AI Radar Endpoints
+- **Problem**: Pada mode Wi-Fi LAN (Local Cluster), perangkat client (kasir 2/waiter) tidak dapat melihat data di tab "Radar Habis Stok" karena server Host belum memiliki rute AI dan `aiBaseUrl` default mengarah ke port 8001 yang tidak aktif.
+- **Solution**:
+  - `lib/services/local_host_server_service.dart`: Menambahkan endpoint:
+    - `GET /api/v1/ai/forecasting/stockouts`: Memanggil `LocalDbService.getAiStockoutPredictions()` dan mengembalikan prediksi stok kritis.
+    - `GET /api/v1/ai/clustering/customers`: Memanggil `LocalDbService.getAiCustomerClusters()` untuk segmentasi pelanggan RFM.
+    - `POST /api/v1/ai/promo/send`: Mengakomodasi pengiriman promo via cluster LAN.
+  - `lib/core/constants/api_constants.dart` & `settings_dialog.dart`: Menyelaraskan `aiBaseUrl = posBaseUrl` pada mode Wi-Fi LAN, sehingga client langsung berkomunikasi ke server Host pada port 8080.

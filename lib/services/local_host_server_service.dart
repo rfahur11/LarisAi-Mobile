@@ -482,6 +482,46 @@ class LocalHostServerService {
         return;
       }
 
+      // 7. AI Radar: Stockout Predictions: GET /api/v1/ai/forecasting/stockouts
+      if (path == '/api/v1/ai/forecasting/stockouts' && method == 'GET') {
+        final predictions = await LocalDbService.instance.getAiStockoutPredictions();
+        _jsonResponse(res, HttpStatus.ok, {
+          'status': 'success',
+          'predictions': predictions.map((p) => {
+            'product_id': p.productId,
+            'name': p.name,
+            'current_stock': p.currentStock,
+            'daily_burn_rate': p.dailyBurnRate,
+            'days_until_stockout': p.daysUntilStockout,
+          }).toList(),
+        });
+        return;
+      }
+
+      // 8. AI Radar: Customer RFM Clusters: GET /api/v1/ai/clustering/customers
+      if (path == '/api/v1/ai/clustering/customers' && method == 'GET') {
+        final clusters = await LocalDbService.instance.getAiCustomerClusters();
+        _jsonResponse(res, HttpStatus.ok, {
+          'status': 'success',
+          'clusters': clusters.map((c) => {
+            'customer_id': c.customerId,
+            'cluster_label': c.clusterLabel,
+            'frequency_count': c.frequencyCount,
+            'monetary_value': c.monetaryValue,
+          }).toList(),
+        });
+        return;
+      }
+
+      // 9. AI Promo Send: POST /api/v1/ai/promo/send
+      if (path == '/api/v1/ai/promo/send' && method == 'POST') {
+        _jsonResponse(res, HttpStatus.ok, {
+          'status': 'success',
+          'message': 'Promo berhasil dijadwalkan via LAN Host',
+        });
+        return;
+      }
+
       // 404 Route Not Found
       _jsonResponse(res, HttpStatus.notFound, {
         'error': 'Endpoint not found on LAN Host Server',

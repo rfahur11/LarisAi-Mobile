@@ -22,7 +22,7 @@ class ApiConstants {
 
   // Mode 4: Wi-Fi LAN
   static const String lanPosBaseUrl = 'http://192.168.1.3:8080';
-  static const String lanAiBaseUrl = 'http://192.168.1.3:8001';
+  static const String lanAiBaseUrl = lanPosBaseUrl;
 
   static String posBaseUrl = usbPosBaseUrl;
   static String aiBaseUrl = usbAiBaseUrl;
@@ -46,7 +46,8 @@ class ApiConstants {
 
     // Override with custom URLs if manually set
     posBaseUrl = prefs.getString(keyPosBaseUrl) ?? posBaseUrl;
-    aiBaseUrl = prefs.getString(keyAiBaseUrl) ?? aiBaseUrl;
+    final savedAi = prefs.getString(keyAiBaseUrl) ?? aiBaseUrl;
+    aiBaseUrl = (currentMode == ConnectionMode.wifi) ? posBaseUrl : savedAi;
   }
 
   static void _applyMode(ConnectionMode mode) {
@@ -65,7 +66,7 @@ class ApiConstants {
         break;
       case ConnectionMode.wifi:
         posBaseUrl = lanPosBaseUrl;
-        aiBaseUrl = lanAiBaseUrl;
+        aiBaseUrl = lanPosBaseUrl;
         break;
     }
   }
@@ -83,9 +84,10 @@ class ApiConstants {
   static Future<void> setUrls({required String posUrl, required String aiUrl}) async {
     final prefs = await SharedPreferences.getInstance();
     posBaseUrl = posUrl;
-    aiBaseUrl = aiUrl;
+    final effectiveAi = (currentMode == ConnectionMode.wifi) ? posUrl : aiUrl;
+    aiBaseUrl = effectiveAi;
     await prefs.setString(keyPosBaseUrl, posUrl);
-    await prefs.setString(keyAiBaseUrl, aiUrl);
+    await prefs.setString(keyAiBaseUrl, effectiveAi);
   }
 
   static String get modeLabel {

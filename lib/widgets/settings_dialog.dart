@@ -4069,11 +4069,15 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     await LocalHostServerService.instance.stopServer();
                   }
                   if (_selectedMode != ConnectionMode.offline && _posController.text.trim().isNotEmpty) {
+                    final posUrl = _posController.text.trim();
+                    final aiUrl = (_selectedMode == ConnectionMode.wifi)
+                        ? posUrl
+                        : (_aiController.text.trim().isNotEmpty
+                            ? _aiController.text.trim()
+                            : posUrl);
                     await ApiConstants.setUrls(
-                      posUrl: _posController.text.trim(),
-                      aiUrl: _aiController.text.trim().isNotEmpty
-                          ? _aiController.text.trim()
-                          : _posController.text.trim(),
+                      posUrl: posUrl,
+                      aiUrl: aiUrl,
                     );
                   }
 
