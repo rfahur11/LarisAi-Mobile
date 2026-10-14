@@ -80,5 +80,27 @@ void main() {
       final info = await LicenseService.instance.getLicenseInfo();
       expect(info.isValid, false);
     });
+
+    test('7. Machine ID is deterministic and identical across simulated uninstall (wiped SharedPreferences)', () async {
+      // 1. First installation generates machineId A
+      final machineId1 = await LicenseService.instance.getMachineId();
+      expect(machineId1, startsWith('LRS-'));
+
+      // 2. Simulate complete uninstall (wipe all SharedPreferences)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      // 3. Reinstall app: getMachineId() MUST regenerate the EXACT SAME Machine ID!
+      final machineId2 = await LicenseService.instance.getMachineId();
+      expect(machineId2, equals(machineId1), reason: 'Machine ID must be deterministic across uninstalls');
+
+      // 4. Verify serial key generated for machineId1 activates successfully on machineId2
+      final cleanMid = LicenseService.sanitizeMachineId(machineId2);
+      final validChecksum = LicenseService.generateLicenseChecksum(cleanMid, 'lifetime');
+      final validKey = 'LRS-LIFE-$cleanMid-$validChecksum';
+
+      final success = await LicenseService.instance.activateLicense(validKey);
+      expect(success, true);
+    });
   });
 }

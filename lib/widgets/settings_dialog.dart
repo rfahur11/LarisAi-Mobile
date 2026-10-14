@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -2892,14 +2893,82 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'Hardware Machine ID:',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10),
-                ),
-                Text(
-                  info.machineId,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'HARDWARE MACHINE ID',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.75),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              info.machineId,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                letterSpacing: 1.2,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: info.machineId));
+                            showDialogNotification(
+                              '📋 Machine ID disalin: ${info.machineId}',
+                              color: Colors.teal.shade700,
+                              icon: Icons.copy_rounded,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.copy_rounded, size: 13, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Salin',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 if (!isLifetime && info.expiresAt != null)
@@ -2912,40 +2981,140 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
           ),
 
           const SizedBox(height: 16),
-          Text(
-            'Aktivasi Serial Key Lisensi',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.darkTextMain : AppColors.textMain,
+
+          // Jalur 1: Aktivasi Otomatis (Weboz Cloud Sync)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.teal.shade900.withValues(alpha: 0.3) : Colors.teal.shade50.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? Colors.teal.shade800 : Colors.teal.shade200,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.cloud_done_rounded, size: 16, color: isDark ? Colors.teal.shade300 : Colors.teal.shade700),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Aktivasi Otomatis (Weboz Cloud)',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.teal.shade200 : Colors.teal.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Jika lisensi telah dibeli di Weboz atau via WhatsApp, sistem otomatis mendeteksi status aktivasi Machine ID Anda.',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.teal.shade300 : Colors.teal.shade800,
+                      side: BorderSide(color: isDark ? Colors.teal.shade600 : Colors.teal.shade600, width: 1.2),
+                      backgroundColor: isDark ? Colors.teal.shade900.withValues(alpha: 0.35) : Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.sync_rounded, size: 16),
+                    label: const Text(
+                      'Cek & Pulihkan Lisensi',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                    ),
+                    onPressed: () async {
+                      showDialogNotification(
+                        '⏳ Menghubungkan ke Weboz untuk verifikasi lisensi...',
+                        color: Colors.teal.shade700,
+                        icon: Icons.sync_rounded,
+                      );
+                      final res = await LicenseService.instance.verifyOnlineFromWeboz();
+                      if (res['success'] == true) {
+                        await _loadLicense();
+                        _licenseController.clear();
+                        if (mounted) {
+                          showDialogNotification(
+                            res['message'] ?? '🎉 Lisensi resmi berhasil diaktifkan!',
+                            color: Colors.green.shade700,
+                            icon: Icons.check_circle_rounded,
+                          );
+                        }
+                      } else {
+                        if (mounted) {
+                          showDialogNotification(
+                            res['message'] ?? 'Lisensi belum ditemukan di Weboz.',
+                            color: Colors.orange.shade800,
+                            icon: Icons.info_outline_rounded,
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Masukkan Serial Key aktivasi Lifetime atau SaaS yang Anda terima saat pembelian.',
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            ),
+
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: Divider(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'ATAU AKTIVASI MANUAL',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: isDark ? AppColors.darkBorder : Colors.grey.shade300)),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           TextField(
             controller: _licenseController,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+              letterSpacing: 1.1,
               color: isDark ? AppColors.darkTextMain : AppColors.textMain,
             ),
             decoration: InputDecoration(
               hintText: 'LRS-LIFE-XXXXXXXX-YYYYYYYY',
               hintStyle: TextStyle(
                 color: isDark ? AppColors.darkTextMuted.withValues(alpha: 0.6) : Colors.grey,
-                fontSize: 12,
+                fontSize: 11.5,
                 letterSpacing: 1,
               ),
-              prefixIcon: const Icon(Icons.vpn_key_rounded, color: AppColors.primary, size: 20),
+              prefixIcon: const Icon(Icons.vpn_key_rounded, color: AppColors.primary, size: 18),
+              suffixIcon: IconButton(
+                tooltip: 'Tempel dari Clipboard',
+                icon: const Icon(Icons.paste_rounded, size: 18, color: AppColors.primary),
+                onPressed: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data != null && data.text != null && data.text!.trim().isNotEmpty) {
+                    setState(() {
+                      _licenseController.text = data.text!.trim();
+                    });
+                  }
+                },
+              ),
               filled: true,
               fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade50,
               border: OutlineInputBorder(
@@ -2964,56 +3133,10 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             ),
           ),
           const SizedBox(height: 10),
-
-          // 1-Tap Online Activation from Weboz
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.teal.shade700,
-                side: BorderSide(color: Colors.teal.shade600, width: 1.2),
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.sync_rounded, size: 18),
-              label: const Text(
-                '🔄 1-Tap: Cek & Aktifkan Lisensi dari Weboz',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-              onPressed: () async {
-                showDialogNotification(
-                  '⏳ Menghubungkan ke Weboz untuk verifikasi lisensi...',
-                  color: Colors.teal.shade700,
-                  icon: Icons.sync_rounded,
-                );
-                final res = await LicenseService.instance.verifyOnlineFromWeboz();
-                if (res['success'] == true) {
-                  await _loadLicense();
-                  _licenseController.clear();
-                  if (mounted) {
-                    showDialogNotification(
-                      res['message'] ?? '🎉 Lisensi resmi berhasil diaktifkan!',
-                      color: Colors.green.shade700,
-                      icon: Icons.check_circle_rounded,
-                    );
-                  }
-                } else {
-                  if (mounted) {
-                    showDialogNotification(
-                      res['message'] ?? 'Lisensi belum ditemukan di Weboz.',
-                      color: Colors.orange.shade800,
-                      icon: Icons.info_outline_rounded,
-                    );
-                  }
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
 
           SizedBox(
             width: double.infinity,
@@ -3025,7 +3148,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               icon: const Icon(Icons.verified_user_rounded, size: 18),
-              label: const Text('Aktifkan Lisensi Manual', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Aktifkan Serial Key', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               onPressed: () async {
                 final key = _licenseController.text.trim();
                 if (key.isEmpty) {
@@ -3063,7 +3186,7 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
 
           const SizedBox(height: 16),
           Divider(color: isDark ? AppColors.darkBorder : null),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             'Belum Memiliki Lisensi?',
             style: TextStyle(
@@ -3072,50 +3195,49 @@ class _SettingsDialogState extends State<SettingsDialog> with SingleTickerProvid
               color: isDark ? AppColors.darkTextMain : AppColors.textMain,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
-            'Dapatkan lisensi resmi seumur hidup (Lifetime) atau langganan Cloud SaaS melalui portal Weboz Store.',
+            'Dapatkan lisensi resmi seumur hidup (Lifetime) atau langganan Cloud SaaS melalui portal resmi Weboz.',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 10),
 
-          // CTA Button 1: Weboz Official Store
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.teal.shade300 : Colors.teal.shade800,
-                side: BorderSide(color: isDark ? Colors.teal.shade600 : Colors.teal.shade400, width: 1.5),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                backgroundColor: isDark ? Colors.teal.shade900.withValues(alpha: 0.3) : Colors.teal.shade50.withValues(alpha: 0.5),
+          // Bento 2-Kolom: Weboz Store & WhatsApp Admin
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.teal.shade300 : Colors.teal.shade800,
+                    side: BorderSide(color: isDark ? Colors.teal.shade600 : Colors.teal.shade400, width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: isDark ? Colors.teal.shade900.withValues(alpha: 0.25) : Colors.teal.shade50.withValues(alpha: 0.5),
+                  ),
+                  icon: const Icon(Icons.shopping_bag_outlined, size: 16),
+                  label: const Text('Weboz Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  onPressed: () => _openWebStore(info.machineId),
+                ),
               ),
-              icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-              label: const Text('Beli Lisensi Resmi di Weboz.my.id', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
-              onPressed: () => _openWebStore(info.machineId),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // CTA Button 2: WhatsApp Sales & Support
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.green.shade300 : Colors.green.shade800,
-                side: BorderSide(color: isDark ? Colors.green.shade600 : Colors.green.shade400, width: 1.5),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                backgroundColor: isDark ? Colors.green.shade900.withValues(alpha: 0.3) : Colors.green.shade50.withValues(alpha: 0.5),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.green.shade300 : Colors.green.shade800,
+                    side: BorderSide(color: isDark ? Colors.green.shade600 : Colors.green.shade400, width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: isDark ? Colors.green.shade900.withValues(alpha: 0.25) : Colors.green.shade50.withValues(alpha: 0.5),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                  label: const Text('Chat Admin WA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  onPressed: () => _openWhatsApp(info.machineId),
+                ),
               ),
-              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-              label: const Text('Chat WhatsApp Admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center),
-              onPressed: () => _openWhatsApp(info.machineId),
-            ),
+            ],
           ),
         ],
       ),

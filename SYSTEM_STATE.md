@@ -358,3 +358,27 @@ flutter run -d windows
     - `GET /api/v1/ai/clustering/customers`: Memanggil `LocalDbService.getAiCustomerClusters()` untuk segmentasi pelanggan RFM.
     - `POST /api/v1/ai/promo/send`: Mengakomodasi pengiriman promo via cluster LAN.
   - `lib/core/constants/api_constants.dart` & `settings_dialog.dart`: Menyelaraskan `aiBaseUrl = posBaseUrl` pada mode Wi-Fi LAN, sehingga client langsung berkomunikasi ke server Host pada port 8080.
+
+---
+
+## 🔑 15. Deterministic Hardware Machine ID & Tactile Merchant License Activation UI
+
+> **Tanggal Rilis**: 14 Oktober 2026  
+> **Status**: 🟢 Production Ready & Verified via 52 Unit Tests & Physical Android Device (`3e893788`)
+
+### 1. Deterministic Hardware Machine ID (Anti-Hangus Saat Reinstall)
+- **Problem**: Penggunaan `DateTime.now().millisecondsSinceEpoch` pada `LicenseService.getMachineId()` menyebabkan Machine ID berubah setiap kali user melakukan uninstall lalu install ulang (karena `SharedPreferences` terhapus oleh OS), sehingga serial key seumur hidup (Lifetime) yang dibeli menjadi tidak cocok (*invalid*).
+- **Solution**:
+  - `android/.../MainActivity.kt`: Menambahkan native MethodChannel `com.larisai.larisai_mobile/device_info` untuk membaca `Settings.Secure.ANDROID_ID`.
+  - `lib/services/license_service.dart`: Menghapus dependensi timestamp `ts`. Machine ID di-derive secara deterministik dari `ANDROID_ID:secretSalt` (atau platform UUID di Windows/Desktop).
+  - Teruji pada `test/license_cryptographic_guard_test.dart` (Test 7): Machine ID tetap 100% identik dan serial key Lifetime yang telah dibeli tetap valid selamanya meskipun seluruh SharedPreferences dibersihkan.
+
+### 2. Tactile Merchant License Activation UI (Anti-AI-Slop)
+- **Problem**: Tab Lisensi memiliki tombol aktivasi ganda yang bertumpuk vertikal (`1-Tap Weboz` dan `Aktifkan Manual`), membingungkan kasir/pedagang, dan tidak memiliki fitur salin Machine ID.
+- **Solution**:
+  - `lib/widgets/settings_dialog.dart`:
+    - Menambahkan tombol **`[ Salin ]`** pada chip Hardware Machine ID dengan feedback visual dan clipboard snackbar.
+    - Memisahkan jalur aktivasi menjadi 2 kartu rapi:
+      1. **Jalur 1: Aktivasi Otomatis (Weboz Cloud Sync)**: Kartu elegan dengan 1 tombol aksi `[ 🔄 Cek & Pulihkan Lisensi ]`.
+      2. **Jalur 2: Aktivasi Manual (Serial Key)**: TextField bersuffix `[ 📋 Tempel ]` dan 1 tombol primer `[ Aktifkan Serial Key ]`.
+    - Merestrukturisasi footer pembelian ke dalam **Bento 2-Kolom** seimbang untuk Weboz Store dan Chat WhatsApp Admin.

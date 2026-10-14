@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum LicenseType { trial, lifetime, subscription }
@@ -74,21 +75,37 @@ class LicenseService {
     return digest.toString().toUpperCase().substring(0, 8);
   }
 
-  /// Get or Generate Unique Persistent Machine Identifier
+  static const MethodChannel _deviceChannel = MethodChannel('com.larisai.larisai_mobile/device_info');
+
+  /// Get or Generate Unique Persistent Machine Identifier (Deterministic across uninstalls)
   Future<String> getMachineId() async {
     final prefs = await SharedPreferences.getInstance();
     String? machineId = prefs.getString(_prefMachineId);
 
     if (machineId == null || machineId.isEmpty) {
-      final hostName = Platform.localHostname;
-      final os = Platform.operatingSystem;
-      final ts = DateTime.now().millisecondsSinceEpoch.toString();
-      
-      // Hash combined info
-      final raw = '$os-$hostName-$ts-$_secretSalt';
+      String hardwareId = '';
+      if (Platform.isAndroid) {
+        try {
+          final res = await _deviceChannel.invokeMethod<String>('getHardwareId');
+          if (res != null && res.trim().isNotEmpty) {
+            hardwareId = res.trim();
+          }
+        } catch (_) {}
+      }
+
+      // If non-Android (Windows/Linux/macOS) or MethodChannel failed, use persistent host attributes
+      if (hardwareId.isEmpty) {
+        final hostName = Platform.localHostname;
+        final os = Platform.operatingSystem;
+        final version = Platform.operatingSystemVersion;
+        hardwareId = '$os-$hostName-$version';
+      }
+
+      // Hash deterministic hardware ID with secret salt
+      final raw = '$hardwareId:$_secretSalt';
       final bytes = utf8.encode(raw);
       final hash = crypto.sha256.convert(bytes).toString().toUpperCase().substring(0, 16);
-      
+
       // Format: LRS-XXXX-XXXX-XXXX
       machineId = 'LRS-${hash.substring(0, 4)}-${hash.substring(4, 8)}-${hash.substring(8, 12)}';
       await prefs.setString(_prefMachineId, machineId);
